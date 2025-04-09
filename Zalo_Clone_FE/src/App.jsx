@@ -1,35 +1,41 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState } from "react";
+import { ThemeProvider, CssBaseline, Box } from "@mui/material";
+import { createTheme } from "@mui/material/styles";
+import NavSidebar from "./components/NavSidebar";
 
-function App() {
-  const [count, setCount] = useState(0)
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: "#0088cc",
+      light: "#35a3e0",
+      dark: "#006699"
+    },
+    secondary: {
+      main: "#f5f5f5",
+      light: "#ffffff",
+      dark: "#e0e0e0"
+    }
+  }
+});
+
+const mockUser = {
+  id: 1,
+  name: "Current User",
+  avatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36",
+  status: "online"
+};
+
+const App = () => {
+  const [currentView, setCurrentView] = useState("messages");
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ display: "flex", height: "100vh" }}>
+        <NavSidebar currentView={currentView} setCurrentView={setCurrentView} user={mockUser} />
+      </Box>
+    </ThemeProvider>
+  );
+};
 
-export default App
+export default App;
