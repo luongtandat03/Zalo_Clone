@@ -1,0 +1,29 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  devtools:
+    add-properties: true
+  data:
+    mongodb:
+      uri: mongodb+srv://admin:a7GkOoGANE6vI274@app-chat.xdfkqgl.mongodb.net/?retryWrites=true&w=majority&appName=app-chat
+      database: zalo-app
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+openapi:
+  service:
+    api-docs: zalo-app
+    server: http://localhost:${server.port}
+    title: Zalo app
+    version: 1.0.0
+
+jwt:
+  expiryMinutes: 60
+  expiryDay: 14
+  accessKey: vp/W0H2km+ha54EMwdU0lsVb8JNtoFrRlXVgytwhCsA=
+  refreshKey: w+7+dny0YjqUN/bwKsejjgkBUdRUOeI7Liqr3jn2cqM=
