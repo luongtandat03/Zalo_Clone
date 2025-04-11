@@ -8,6 +8,8 @@ spring:
     mongodb:
       uri: mongodb+srv://admin:a7GkOoGANE6vI274@app-chat.xdfkqgl.mongodb.net/?retryWrites=true&w=majority&appName=app-chat
       database: zalo-app
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
 
 springdoc:
   api-docs:

@@ -12,7 +12,9 @@ package vn.edu.iuh.fit.zalo_app_be.model;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -55,6 +57,12 @@ public class User implements UserDetails, Serializable {
     private String username;
 
     private String password;
+
+    @CreatedDate
+    private Date createdAt;
+
+    @LastModifiedDate
+    private Date updateAt;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

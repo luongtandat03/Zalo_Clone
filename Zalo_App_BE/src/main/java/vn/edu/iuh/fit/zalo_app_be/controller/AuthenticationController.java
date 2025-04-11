@@ -19,9 +19,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.SignInRequest;
+import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserRegisterRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.RegisterResponse;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.SignInResponse;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.UserPasswordResponse;
 import vn.edu.iuh.fit.zalo_app_be.model.User;
 import vn.edu.iuh.fit.zalo_app_be.service.AuthenticationService;
 import vn.edu.iuh.fit.zalo_app_be.service.UserService;
@@ -61,5 +63,6 @@ public class AuthenticationController {
     public String forgotPassword() {
         return "Forgot password successful";
     }
+
 
 }

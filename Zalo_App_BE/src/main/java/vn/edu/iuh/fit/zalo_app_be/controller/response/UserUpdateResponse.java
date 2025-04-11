@@ -1,5 +1,5 @@
 /*
- * @ (#) RegisterResponse.java       1.0     4/10/2025
+ * @ (#) UserUpdateResponse.java       1.0     4/11/2025
  *
  * Copyright (c) 2025. All rights reserved.
  */
@@ -7,7 +7,7 @@
 package vn.edu.iuh.fit.zalo_app_be.controller.response;
 /*
  * @author: Luong Tan Dat
- * @date: 4/10/2025
+ * @date: 4/11/2025
  */
 
 import lombok.Builder;
@@ -18,11 +18,10 @@ import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 
 import java.util.Date;
 
-@Getter
 @Setter
+@Getter
 @Builder
-public class RegisterResponse {
-    private String userId;
+public class UserUpdateResponse {
     private String firstName;
     private String lastName;
     private Date birthday;
@@ -31,8 +30,4 @@ public class RegisterResponse {
     private Gender gender;
     private UserStatus status;
     private String avatar;
-    private String username;
-    private String password;
-    private String accessToken;
-    private String refreshToken;
 }

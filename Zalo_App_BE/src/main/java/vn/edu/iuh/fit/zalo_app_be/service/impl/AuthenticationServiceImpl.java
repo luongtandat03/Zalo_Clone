@@ -73,6 +73,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .userId(user.getId())
                     .username(user.getUsername())
                     .build();
+
         } catch (BadCredentialsException e) {
             log.error("Invalid credentials: {}", e.getMessage());
             throw new AccessDeniedException("Invalid username or password");
