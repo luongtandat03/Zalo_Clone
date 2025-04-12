@@ -18,9 +18,6 @@ import vn.edu.iuh.fit.zalo_app_be.controller.response.RegisterResponse;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.UserPasswordResponse;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.UserResponse;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.UserUpdateResponse;
-import vn.edu.iuh.fit.zalo_app_be.model.User;
-
-import java.util.Optional;
 
 public interface UserService {
     RegisterResponse register(UserRegisterRequest request);

@@ -26,5 +26,4 @@ public class UserUpdateRequest {
     private Gender gender;
     private UserStatus status;
     private String avatar;
-    private String username;
 }

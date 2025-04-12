@@ -30,4 +30,7 @@ public class UserUpdateResponse {
     private Gender gender;
     private UserStatus status;
     private String avatar;
+    private String username;
+    private Date createdAt;
+    private Date updateAt;
 }

@@ -35,7 +35,7 @@ public class UserController {
         return userService.getUserCurrent();
     }
 
-    @PostMapping("/user/update")
+    @PutMapping("/update")
     public UserUpdateResponse updateUser(@RequestBody UserUpdateRequest request) {
         log.info("Update user request: {}", request.getEmail());
 

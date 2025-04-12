@@ -10,13 +10,10 @@ package vn.edu.iuh.fit.zalo_app_be.service.impl;
  * @date: 4/10/2025
  */
 
-import io.jsonwebtoken.Jwt;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -36,10 +33,6 @@ import vn.edu.iuh.fit.zalo_app_be.model.User;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.JwtService;
 import vn.edu.iuh.fit.zalo_app_be.service.UserService;
-
-import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.Optional;
 
 @Service
 @Slf4j(topic = "USER-SERVICE")
@@ -84,21 +77,34 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserUpdateResponse updateUser(UserUpdateRequest request) {
-        User user = userRepository.findByUsername(request.getUsername());
-        if (user == null) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() instanceof String) {
+            log.error("No authenticated user found");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
+        }
+
+        String username = authentication.getName();
+
+        User user = userRepository.findByUsername(username);
+        if(user == null) {
+            log.error("User not found with username: {}", username);
             throw new UsernameNotFoundException("User not found");
         }
 
-        user = User.builder()
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .gender(request.getGender())
-                .birthday(request.getBirthday())
-                .email(request.getEmail())
-                .phone(request.getPhone())
-                .avatar(request.getAvatar())
-                .status(request.getStatus())
-                .build();
+        log.info("User loaded from DB with username: {} - id: {} ", user.getUsername(), user.getId());
+
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setPhone(request.getPhone());
+        user.setEmail(request.getEmail());
+        user.setGender(request.getGender());
+        user.setBirthday(request.getBirthday());
+        user.setAvatar(request.getAvatar());
+        user.setStatus(request.getStatus());
+
+        log.info("User {} updated", user.getId());
+        user = userRepository.save(user);
 
         return UserUpdateResponse.builder()
                 .firstName(user.getFirstName())
@@ -109,6 +115,9 @@ public class UserServiceImpl implements UserService {
                 .birthday(user.getBirthday())
                 .avatar(user.getAvatar())
                 .status(user.getStatus())
+                .username(user.getUsername())
+                .createdAt(user.getCreatedAt())
+                .updateAt(user.getUpdateAt())
                 .build();
     }
 

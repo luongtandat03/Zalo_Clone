@@ -55,23 +55,24 @@ public class CustomizeRequestFilter extends OncePerRequestFilter {
             log.info("Bearer authHeader: {}", token.substring(0, 20));
 
             String username = "";
-            try {
-                username = jwtService.extractUsername(token, TokenType.ACCESS_TOKEN);
-                log.info("Username: {}", username);
-            } catch (Exception e) {
-                log.error(e.getMessage());
-                response.setStatus(HttpServletResponse.SC_OK);
-                response.setContentType("application/json");
-                response.setCharacterEncoding("UTF-8");
-                response.getWriter().write(errorResponse(e.getMessage()));
-                return;
+            username = jwtService.extractUsername(token, TokenType.ACCESS_TOKEN);
+
+            log.info("Username: {}", username);
+
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userServiceDetail.userDetailsService().loadUserByUsername(username);
+                if (userDetails == null) {
+                    log.error("User not found");
+                    sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "User not found");
+                    return;
+                }
             }
 
             UserDetails userDetails = userServiceDetail.userDetailsService().loadUserByUsername(username);
 
             SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
 
-            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, Collections.emptyList());
+            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
             authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             securityContext.setAuthentication(authenticationToken);
             SecurityContextHolder.setContext(securityContext);
@@ -103,4 +104,12 @@ public class CustomizeRequestFilter extends OncePerRequestFilter {
         }
     }
 
+    private void sendErrorResponse(HttpServletResponse response, int status, String message)
+            throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        String jsonResponse = String.format("{\"error\": \"%s\"}", message);
+        response.getWriter().write(jsonResponse);
+    }
 }
