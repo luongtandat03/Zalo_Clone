@@ -47,7 +47,6 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     public SignInResponse getAccessToken(SignInRequest request) {
         log.info("Get Access Token");
 
-
         List<String> authorities = new ArrayList<>();
         User user;
         try {

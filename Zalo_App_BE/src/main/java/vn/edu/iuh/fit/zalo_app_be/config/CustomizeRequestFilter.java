@@ -51,7 +51,7 @@ public class CustomizeRequestFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader(AUTHORIZATION);
         if (StringUtils.hasLength(authHeader) && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
+            String token = authHeader.substring(7).trim();
             log.info("Bearer authHeader: {}", token.substring(0, 20));
 
             String username = "";

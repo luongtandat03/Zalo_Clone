@@ -13,11 +13,10 @@ package vn.edu.iuh.fit.zalo_app_be.controller.response;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
 import vn.edu.iuh.fit.zalo_app_be.common.Gender;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Getter
@@ -34,6 +33,6 @@ public class UserResponse {
     private Gender gender;
     private UserStatus status;
     private String avatar;
-    private Date createdAt;
-    private Date updateAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime updateAt;
 }

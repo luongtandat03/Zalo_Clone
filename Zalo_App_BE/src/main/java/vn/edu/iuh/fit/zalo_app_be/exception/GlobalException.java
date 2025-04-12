@@ -30,6 +30,7 @@ import java.util.Date;
 
 @RestControllerAdvice
 public class GlobalException {
+    private ErrorResponse errorResponse;
 
     /**
      * Handle exception when the request is invalid
@@ -60,7 +61,7 @@ public class GlobalException {
                             ))})
     )
     public ErrorResponse handleValidationException(Exception e, WebRequest req) {
-        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse = new ErrorResponse();
         errorResponse.setTimestamp(new Date());
         errorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
         errorResponse.setPath(req.getDescription(false).replace("uri=", ""));
@@ -93,10 +94,11 @@ public class GlobalException {
      * @param req
      * @return
      */
-    @ExceptionHandler(ResourceNotFoundException.class)
+    @ExceptionHandler({ResourceNotFoundException.class,
+            BlackListException.class})
     @ResponseStatus(HttpStatus.NOT_FOUND)
     @ApiResponses(
-            @ApiResponse(responseCode = "404", description = "Bad Request",
+            @ApiResponse(responseCode = "404", description = "Not Found",
                     content = {@Content(mediaType = APPLICATION_JSON_VALUE,
                             examples = @ExampleObject(
                                     name = "404 Response",
@@ -114,7 +116,7 @@ public class GlobalException {
                     )})
     )
     public ErrorResponse handleResourceNotFoundException(Exception e, WebRequest req) {
-        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse = new ErrorResponse();
         errorResponse.setTimestamp(new Date());
         errorResponse.setPath(req.getDescription(false).replace("uri=", ""));
         errorResponse.setStatus(HttpStatus.NOT_FOUND.value());
@@ -152,7 +154,7 @@ public class GlobalException {
                     )})
     )
     public ErrorResponse handleEmailExistException(InvalidDataException e, WebRequest req) {
-        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse = new ErrorResponse();
         errorResponse.setTimestamp(new Date());
         errorResponse.setPath(req.getDescription(false).replace("uri=", ""));
         errorResponse.setStatus(HttpStatus.CONFLICT.value());
@@ -160,6 +162,7 @@ public class GlobalException {
         errorResponse.setMessage(e.getMessage());
         return errorResponse;
     }
+
     /**
      * Handle exception when the request not found data
      *
@@ -188,7 +191,7 @@ public class GlobalException {
                     )})
     )
     public ErrorResponse handleAccessDeniedException(InvalidDataException e, WebRequest req) {
-        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse = new ErrorResponse();
         errorResponse.setTimestamp(new Date());
         errorResponse.setPath(req.getDescription(false).replace("uri=", ""));
         errorResponse.setStatus(HttpStatus.FORBIDDEN.value());
@@ -225,7 +228,7 @@ public class GlobalException {
                     )})
     )
     public ErrorResponse handleUserExistedException(DulicatedUserException e, WebRequest req) {
-        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse = new ErrorResponse();
         errorResponse.setTimestamp(new Date());
         errorResponse.setPath(req.getDescription(false).replace("uri=", ""));
         errorResponse.setStatus(HttpStatus.CONFLICT.value());
@@ -233,4 +236,43 @@ public class GlobalException {
         errorResponse.setMessage(e.getMessage());
         return errorResponse;
     }
+
+    /**
+     * Handle exception when token is invalid
+     *
+     * @param e
+     * @param req
+     * @return
+     */
+    @ExceptionHandler(UnauthorizedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    @ApiResponses(
+            @ApiResponse(responseCode = "401", description = "UNAUTHORIZED",
+                    content = {@Content(mediaType = APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(
+                                    name = "401 UNAUTHORIZED",
+                                    summary = "Handle Exception when token is invalid",
+                                    value = """
+                                            {
+                                                "timestamp": "2025-03-29T09:00:00.000+00:00",
+                                                "status": 401,
+                                                "path": "/api/v1/...",
+                                                "error": "Not Found",
+                                                "message": "{data} not found"
+                                            }
+                                            """
+                            )
+                    )})
+    )
+    public ErrorResponse handleUnauthorzedException(UnauthorizedException e, WebRequest req) {
+        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.setTimestamp(new Date());
+        errorResponse.setPath(req.getDescription(false).replace("uri=", ""));
+        errorResponse.setStatus(HttpStatus.UNAUTHORIZED.value());
+        errorResponse.setError(HttpStatus.UNAUTHORIZED.getReasonPhrase());
+        errorResponse.setMessage(e.getMessage());
+        return errorResponse;
+    }
+
+
 }

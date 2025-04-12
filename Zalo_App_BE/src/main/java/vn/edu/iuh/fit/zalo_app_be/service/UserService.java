@@ -14,10 +14,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserRegisterRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserUpdateRequest;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.RegisterResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserPasswordResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserUpdateResponse;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.*;
 
 public interface UserService {
     RegisterResponse register(UserRegisterRequest request);
@@ -25,4 +22,7 @@ public interface UserService {
     UserDetails loadUserByUsername(String username);
     UserPasswordResponse updatePassword(UserPasswordRequest request);
     UserResponse getUserCurrent();
+    LogoutResponse logoutUserCurrent(String token);
+    void requestPasswordReset(String email);
+    void resetPassword(String token, String newPassword);
 }

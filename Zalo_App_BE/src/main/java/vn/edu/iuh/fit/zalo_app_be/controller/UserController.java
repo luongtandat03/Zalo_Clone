@@ -12,10 +12,13 @@ package vn.edu.iuh.fit.zalo_app_be.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserUpdateRequest;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.LogoutResponse;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.UserPasswordResponse;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.UserResponse;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.UserUpdateResponse;
@@ -48,4 +51,24 @@ public class UserController {
 
         return userService.updatePassword(request);
     }
+
+    @PostMapping("/logout")
+    public LogoutResponse logoutUserCurrent(@RequestHeader("Authorization") String token) {
+        log.info("Logout user request: {}", token);
+
+        if (token == null || !token.startsWith("Bearer ")) {
+            log.error("Invalid Authorization header format");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Authorization header format");
+        }
+
+        String accessToken = token.substring(7).trim();
+        if (accessToken.isEmpty()) {
+            log.error("Access token is empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Access token is empty");
+        }
+
+        return userService.logoutUserCurrent(accessToken);
+    }
+
+
 }

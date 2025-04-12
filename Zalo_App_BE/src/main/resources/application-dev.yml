@@ -11,6 +11,19 @@ spring:
   jackson:
     time-zone: Asia/Ho_Chi_Minh
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: mailcv097@gmail.com
+    password: cjgpjfqbpicjofqc
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+
 springdoc:
   api-docs:
     enabled: true
@@ -26,6 +39,8 @@ openapi:
 
 jwt:
   expiryMinutes: 60
-  expiryDay: 14
+  expiryDay: 7
   accessKey: vp/W0H2km+ha54EMwdU0lsVb8JNtoFrRlXVgytwhCsA=
   refreshKey: w+7+dny0YjqUN/bwKsejjgkBUdRUOeI7Liqr3jn2cqM=
+  resetKey: nApgUJd322ox7k/x11ep43ew88T3lidT88NoGFXY1t0=
+  resetPasswordExpiryMinutes: 10

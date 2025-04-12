@@ -20,19 +20,25 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import vn.edu.iuh.fit.zalo_app_be.common.TokenType;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserRegisterRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserUpdateRequest;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.RegisterResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserPasswordResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserUpdateResponse;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.*;
 import vn.edu.iuh.fit.zalo_app_be.exception.DulicatedUserException;
+import vn.edu.iuh.fit.zalo_app_be.exception.InvalidDataException;
+import vn.edu.iuh.fit.zalo_app_be.exception.UnauthorizedException;
+import vn.edu.iuh.fit.zalo_app_be.model.PasswordResetToken;
 import vn.edu.iuh.fit.zalo_app_be.model.User;
+import vn.edu.iuh.fit.zalo_app_be.repository.PasswordResetTokenRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
+import vn.edu.iuh.fit.zalo_app_be.service.EmailService;
 import vn.edu.iuh.fit.zalo_app_be.service.JwtService;
 import vn.edu.iuh.fit.zalo_app_be.service.UserService;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Slf4j(topic = "USER-SERVICE")
@@ -41,6 +47,8 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Override
     public RegisterResponse register(UserRegisterRequest request) {
@@ -176,5 +184,102 @@ public class UserServiceImpl implements UserService {
                 .createdAt(user.getCreatedAt())
                 .updateAt(user.getUpdateAt())
                 .build();
+    }
+
+    @Override
+    public LogoutResponse logoutUserCurrent(String token) {
+        log.info("Logging out user with token: {}", token);
+        String username;
+        try {
+            username = jwtService.extractUsername(token, TokenType.ACCESS_TOKEN);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid access token format: {}", e.getMessage());
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Invalid access token format: " + e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("Error extracting username from token: {}", e.getMessage());
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, e.getMessage());
+        }
+
+        User user = userRepository.findByUsername(username);
+        if (user == null) {
+            log.error("Token is invalid or expired");
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Token is invalid or expired");
+        }
+
+        jwtService.blackListToken(token, TokenType.ACCESS_TOKEN);
+        log.info("Token blacklisted successfully for user: {}", username);
+        return LogoutResponse.builder()
+                .message("Logout successfully")
+                .build();
+    }
+
+    @Override
+    public void requestPasswordReset(String email) {
+        log.info("Requesting password reset for email: {}", email);
+
+        User user = userRepository.findByEmail(email);
+        if (user == null) {
+            log.error("User not found with email: {}", email);
+            throw new InvalidDataException("User not found");
+        }
+        PasswordResetToken tokenReset = passwordResetTokenRepository.findByEmail(user.getEmail());
+        if(tokenReset != null) {
+            passwordResetTokenRepository.delete(tokenReset);
+        }
+
+        String token = jwtService.generateResetToken(user.getId());
+        LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(15);
+        PasswordResetToken resetToken = new PasswordResetToken(token, email, expiryDate);
+        passwordResetTokenRepository.save(resetToken);
+
+        try{
+            emailService.sendPasswordResetEmail(email,token);
+        }catch (Exception e){
+            log.error("Error while sending password reset email: {}", e.getMessage());
+            passwordResetTokenRepository.delete(resetToken);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"Error while sending password reset email");
+        }
+    }
+
+    @Override
+    public void resetPassword(String token, String newPassword) {
+        log.info("Resetting password with token: {}", token);
+
+        if (token == null || token.trim().isEmpty()) {
+            log.error("Reset token is null or empty");
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Invalid reset token");
+        }
+
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token);
+
+        if (resetToken == null) {
+            log.error("Reset token is null or empty");
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Invalid reset token");
+        }
+
+        User user = userRepository.findByEmail(resetToken.getEmail());
+
+        if (user == null) {
+            log.error("User not found with email: {}", resetToken.getEmail());
+            throw new InvalidDataException("User not found");
+        }
+
+        if (resetToken.isUsed()) {
+            log.error("Reset token already used: {}", token);
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Reset token already used");
+        }
+
+        if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            log.error("Reset token expired: {}", token);
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Reset token expired");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        log.info("Password reset successfully for user: {}", user.getUsername());
     }
 }

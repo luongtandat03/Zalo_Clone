@@ -22,10 +22,10 @@ import vn.edu.iuh.fit.zalo_app_be.common.Gender;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
-import java.util.List;
 
 @Getter
 @Setter
@@ -59,10 +59,10 @@ public class User implements UserDetails, Serializable {
     private String password;
 
     @CreatedDate
-    private Date createdAt;
+    private LocalDateTime createdAt;
 
     @LastModifiedDate
-    private Date updateAt;
+    private LocalDateTime updateAt;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

@@ -18,4 +18,6 @@ import vn.edu.iuh.fit.zalo_app_be.model.User;
 @Repository
 public interface UserRepository extends MongoRepository<User, Long> {
     User findByUsername(String username);
+
+    User findByEmail(String email);
 }

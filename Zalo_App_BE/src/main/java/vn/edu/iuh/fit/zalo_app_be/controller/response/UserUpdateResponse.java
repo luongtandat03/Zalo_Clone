@@ -16,6 +16,7 @@ import lombok.Setter;
 import vn.edu.iuh.fit.zalo_app_be.common.Gender;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Setter
@@ -31,6 +32,6 @@ public class UserUpdateResponse {
     private UserStatus status;
     private String avatar;
     private String username;
-    private Date createdAt;
-    private Date updateAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime updateAt;
 }

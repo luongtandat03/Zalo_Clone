@@ -20,5 +20,9 @@ public interface JwtService {
 
     String generateRefreshToken(String userId, String username);
 
+    String generateResetToken(String userId);
+
     String extractUsername(String token, TokenType tokenType);
+
+    void blackListToken(String token, TokenType type);
 }
