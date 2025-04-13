@@ -10,10 +10,7 @@ package vn.edu.iuh.fit.zalo_app_be.service;
  * @date: 4/9/2025
  */
 
-import org.springframework.security.core.GrantedAuthority;
 import vn.edu.iuh.fit.zalo_app_be.common.TokenType;
-
-import java.util.Collection;
 
 public interface JwtService {
     String generateAccessToken(String userId, String username);

@@ -25,7 +25,7 @@ public class UserRegisterRequest {
     private String email;
     @NotBlank(message = "Phone is required")
     private String phone;
-    @NotBlank(message = "Full name is required")
+    @NotBlank(message = "Avatar is required")
     private String avatar;
     private UserStatus status;
 }

@@ -38,7 +38,6 @@ import vn.edu.iuh.fit.zalo_app_be.service.JwtService;
 import vn.edu.iuh.fit.zalo_app_be.service.UserService;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @Slf4j(topic = "USER-SERVICE")
@@ -49,6 +48,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private RandomCodeGenerator randomCodeGenerator;
 
     @Override
     public RegisterResponse register(UserRegisterRequest request) {
@@ -109,7 +109,6 @@ public class UserServiceImpl implements UserService {
         user.setGender(request.getGender());
         user.setBirthday(request.getBirthday());
         user.setAvatar(request.getAvatar());
-        user.setStatus(request.getStatus());
 
         log.info("User {} updated", user.getId());
         user = userRepository.save(user);
@@ -227,13 +226,13 @@ public class UserServiceImpl implements UserService {
             passwordResetTokenRepository.delete(tokenReset);
         }
 
-        String token = jwtService.generateResetToken(user.getId());
-        LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(15);
-        PasswordResetToken resetToken = new PasswordResetToken(token, email, expiryDate);
+        String code = randomCodeGenerator.generateCode();
+        LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(10);
+        PasswordResetToken resetToken = new PasswordResetToken(code, email, expiryDate);
         passwordResetTokenRepository.save(resetToken);
 
         try{
-            emailService.sendPasswordResetEmail(email,token);
+            emailService.sendPasswordResetEmail(email,code);
         }catch (Exception e){
             log.error("Error while sending password reset email: {}", e.getMessage());
             passwordResetTokenRepository.delete(resetToken);
@@ -242,15 +241,15 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void resetPassword(String token, String newPassword) {
-        log.info("Resetting password with token: {}", token);
+    public void resetPassword(String code, String newPassword) {
+        log.info("Resetting password with code: {}", code);
 
-        if (token == null || token.trim().isEmpty()) {
-            log.error("Reset token is null or empty");
+        if (code == null || code.trim().isEmpty()) {
+            log.error("Code is null");
             throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Invalid reset token");
         }
 
-        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token);
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByCode(code);
 
         if (resetToken == null) {
             log.error("Reset token is null or empty");
@@ -265,12 +264,12 @@ public class UserServiceImpl implements UserService {
         }
 
         if (resetToken.isUsed()) {
-            log.error("Reset token already used: {}", token);
+            log.error("Reset token already used: {}", code);
             throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Reset token already used");
         }
 
         if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            log.error("Reset token expired: {}", token);
+            log.error("Reset token expired: {}", code);
             throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Reset token expired");
         }
 

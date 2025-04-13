@@ -16,7 +16,4 @@ import lombok.Getter;
 public class SignInRequest {
     private String username;
     private String password;
-    private String platform;
-    private String versionApp;
-    private String deviceToken;
 }

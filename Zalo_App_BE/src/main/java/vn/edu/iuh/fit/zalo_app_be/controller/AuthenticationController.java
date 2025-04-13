@@ -21,18 +21,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.SignInRequest;
-import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserRegisterRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.RegisterResponse;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.SignInResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserPasswordResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.UnauthorizedException;
-import vn.edu.iuh.fit.zalo_app_be.model.User;
 import vn.edu.iuh.fit.zalo_app_be.service.AuthenticationService;
 import vn.edu.iuh.fit.zalo_app_be.service.UserService;
 
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @Slf4j(topic = "AUTHENTICATION-CONTROLLER")
@@ -79,10 +75,10 @@ public class AuthenticationController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<Map<String, String>> resetPassword(@RequestBody Map<String, String> request) {
-        String token = request.get("token");
+        String code = request.get("code");
         String password = request.get("password");
         try {
-            userService.resetPassword(token, password);
+            userService.resetPassword(code, password);
             return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
         } catch (UnauthorizedException | ResponseStatusException e) {
             log.error("Error resetting password: {}", e.getMessage());

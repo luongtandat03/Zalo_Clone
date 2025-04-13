@@ -10,8 +10,6 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 import vn.edu.iuh.fit.zalo_app_be.model.PasswordResetToken;
 
-import java.util.List;
-
 /*
  * @author: Luong Tan Dat
  * @date: 4/12/2025
@@ -21,5 +19,5 @@ import java.util.List;
 public interface PasswordResetTokenRepository extends MongoRepository<PasswordResetToken, String> {
     PasswordResetToken findByEmail(String email);
 
-    PasswordResetToken findByToken(String token);
+    PasswordResetToken findByCode(String code);
 }

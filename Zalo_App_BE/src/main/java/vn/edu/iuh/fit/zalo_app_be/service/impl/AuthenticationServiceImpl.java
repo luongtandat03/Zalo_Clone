@@ -19,7 +19,6 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.SignInRequest;
@@ -29,9 +28,6 @@ import vn.edu.iuh.fit.zalo_app_be.model.User;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.AuthenticationService;
 import vn.edu.iuh.fit.zalo_app_be.service.JwtService;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import static vn.edu.iuh.fit.zalo_app_be.common.TokenType.REFRESH_TOKEN;
 
@@ -47,7 +43,6 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     public SignInResponse getAccessToken(SignInRequest request) {
         log.info("Get Access Token");
 
-        List<String> authorities = new ArrayList<>();
         User user;
         try {
             log.info("Username: {}, Password: {}", request.getUsername(), request.getPassword());
@@ -56,7 +51,6 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
             log.info("isAuthenticated: {}", authenticate.isAuthenticated());
 
-            // Lưu thông tin vào SecurityContext
             SecurityContextHolder.getContext().setAuthentication(authenticate);
 
             user = (User) authenticate.getPrincipal();

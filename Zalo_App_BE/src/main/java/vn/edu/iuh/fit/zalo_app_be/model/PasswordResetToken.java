@@ -23,13 +23,13 @@ import java.time.LocalDateTime;
 public class PasswordResetToken {
     @Id
     private String id;
-    private String token;
+    private String code;
     private String email;
     private LocalDateTime expiryDate;
     private boolean used;
 
-    public PasswordResetToken(String token, String email, LocalDateTime expiryDate) {
-        this.token = token;
+    public PasswordResetToken(String code, String email, LocalDateTime expiryDate) {
+        this.code = code;
         this.email = email;
         this.expiryDate = expiryDate;
         this.used = false;

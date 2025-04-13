@@ -20,7 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import vn.edu.iuh.fit.zalo_app_be.common.TokenType;
 import vn.edu.iuh.fit.zalo_app_be.exception.BlackListException;
@@ -31,7 +30,6 @@ import vn.edu.iuh.fit.zalo_app_be.service.JwtService;
 
 import java.security.Key;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;

@@ -22,7 +22,15 @@ spring:
           auth: true
           starttls:
             enable: true
-
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 645395717431-gkm4ciqgqlpm0hlmpb2u4bo88djo0c9v.apps.googleusercontent.com
+            client-secret: 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
+            scope: openid,email,profile
+            redirect-uri: http://localhost:8080/login/oauth2/code/google
 
 springdoc:
   api-docs:
@@ -44,3 +52,7 @@ jwt:
   refreshKey: w+7+dny0YjqUN/bwKsejjgkBUdRUOeI7Liqr3jn2cqM=
   resetKey: nApgUJd322ox7k/x11ep43ew88T3lidT88NoGFXY1t0=
   resetPasswordExpiryMinutes: 10
+
+app:
+  frontend:
+    url: http://localhost:3000
