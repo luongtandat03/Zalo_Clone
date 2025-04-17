@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserUpdateRequest;
@@ -38,10 +39,10 @@ public class UserController {
     }
 
     @PutMapping("/update")
-    public UserUpdateResponse updateUser(@RequestBody UserUpdateRequest request) {
+    public UserUpdateResponse updateUser(@RequestBody UserUpdateRequest request, @RequestPart(value = "avatar", required = false) MultipartFile file) {
         log.info("Update user request: {}", request.getEmail());
 
-        return userService.updateUser(request);
+        return userService.updateUser(request, file);
     }
 
     @PostMapping("/change-password")
@@ -68,7 +69,6 @@ public class UserController {
 
         return userService.logoutUserCurrent(accessToken);
     }
-
 
 
 }
