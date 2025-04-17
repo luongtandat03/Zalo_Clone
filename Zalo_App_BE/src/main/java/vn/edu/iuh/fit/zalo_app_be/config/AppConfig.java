@@ -40,7 +40,7 @@ import static org.springframework.security.config.http.SessionCreationPolicy.STA
 @Configuration
 @RequiredArgsConstructor
 public class AppConfig {
-    private final String[] whitelistedUrls = {"/auth/**"};
+    private final String[] whitelistedUrls = {"/auth/**", "/ws/**"};
     private final CustomizeRequestFilter requestFilter;
     private final UserServiceDetail userServiceDetail;
 
@@ -67,7 +67,7 @@ public class AppConfig {
             @Override
             public void addCorsMappings(@NonNull CorsRegistry registry) {
                 registry.addMapping("**")
-                        .allowedOrigins("http://localhost:8500")
+                        .allowedOrigins("http://localhost:5173")
                         .allowedMethods("GET", "POST", "PUT", "DELETE")
                         .allowedHeaders("*")
                         .allowCredentials(false)

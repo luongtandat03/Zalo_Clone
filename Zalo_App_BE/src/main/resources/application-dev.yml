@@ -22,15 +22,7 @@ spring:
           auth: true
           starttls:
             enable: true
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: 645395717431-gkm4ciqgqlpm0hlmpb2u4bo88djo0c9v.apps.googleusercontent.com
-            client-secret: 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
-            scope: openid,email,profile
-            redirect-uri: http://localhost:8080/login/oauth2/code/google
+
 
 springdoc:
   api-docs:
@@ -55,4 +47,11 @@ jwt:
 
 app:
   frontend:
-    url: http://localhost:3000
+    url: http://localhost:5173
+
+cloudinary:
+  cloud:
+    name: df7mlqoer
+    api-key: 515769347497344
+    api-secret: QMYtlr-zJQFh3UZdeEgNVT_zOG8
+    

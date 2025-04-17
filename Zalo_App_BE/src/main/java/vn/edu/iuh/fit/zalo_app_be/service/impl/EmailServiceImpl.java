@@ -27,8 +27,6 @@ import java.security.SecureRandom;
 @Slf4j(topic = "EMAIL-SERVICE")
 public class EmailServiceImpl implements EmailService {
     private final JavaMailSender javaMailSender;
-    private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static final int CODE_LENGTH = 8;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
