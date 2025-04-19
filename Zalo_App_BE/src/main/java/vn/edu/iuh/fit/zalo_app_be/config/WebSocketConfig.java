@@ -38,7 +38,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final UserRepository userRepository;
     private final UserServiceDetail userServiceDetail;
 
-    @Value("${frontend.url}")
+    @Value("${app.frontend.url}")
     private String urlFrontend;
 
     @Override

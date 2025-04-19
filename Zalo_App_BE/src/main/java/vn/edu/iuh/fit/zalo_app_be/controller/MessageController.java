@@ -48,9 +48,9 @@ public class MessageController {
     @MessageMapping("/chat.send")
     public void sendMessage(@Payload MessageRequest request) {
         messageService.sendMessage(request);
-        simpMessagingTemplate.convertAndSendToUser(request.getReceiverId(), "/queue/message", request);
+        simpMessagingTemplate.convertAndSendToUser(request.getReceiverId(), "/queue/messages", request);
         log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
-        simpMessagingTemplate.convertAndSendToUser(request.getSenderId(), "/queue/message", request);
+        simpMessagingTemplate.convertAndSendToUser(request.getSenderId(), "/queue/messages", request);
     }
 
     @GetMapping("/chat-history")

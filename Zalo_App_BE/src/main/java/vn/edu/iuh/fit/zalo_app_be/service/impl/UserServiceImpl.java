@@ -52,8 +52,8 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
-    private final RandomCodeGenerator randomCodeGenerator;
     private final Cloudinary cloudinary;
+    private final RandomCodeGenerator randomCodeGenerator;
 
     @Override
     public RegisterResponse register(UserRegisterRequest request) {
