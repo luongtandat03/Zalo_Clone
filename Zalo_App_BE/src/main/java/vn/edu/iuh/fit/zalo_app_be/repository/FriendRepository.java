@@ -12,6 +12,7 @@ import vn.edu.iuh.fit.zalo_app_be.common.FriendStatus;
 import vn.edu.iuh.fit.zalo_app_be.model.Friend;
 
 import java.util.List;
+import java.util.Optional;
 
 /*
  * @author: Luong Tan Dat
@@ -25,4 +26,6 @@ public interface FriendRepository extends MongoRepository<Friend, String> {
     Friend findBySenderIdAndReceiverIdAndStatus(String senderId, String receiverId, FriendStatus status);
 
     List<Friend> findBySenderIdAndStatus(String senderId, FriendStatus status);
+
+    Optional<Friend> findBySenderId(String senderId);
 }

@@ -18,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import vn.edu.iuh.fit.zalo_app_be.common.FriendStatus;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.FriendResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.ResourceNotFoundException;
 import vn.edu.iuh.fit.zalo_app_be.model.Friend;
 import vn.edu.iuh.fit.zalo_app_be.model.User;
@@ -29,6 +30,7 @@ import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -46,12 +48,35 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
-    public List<User> getFriends() {
+    public List<FriendResponse> getAllFriends() {
         String userId = getCurrentUserId();
 
         Optional<User> userOptional = userRepository.findById(userId);
 
-        return userRepository.getAllByFriends(userOptional.get().getFriends());
+        // Check if the user is not found
+        throwIf(userOptional.isEmpty(), "User not found with id: {}", "User not found with id: " + userId, HttpStatus.NOT_FOUND);
+
+        List<String> friendIds = userOptional.get().getFriends();
+
+        // Check if the user has no friends
+        throwIf(friendIds == null && friendIds.isEmpty(), "User has no friends", "User has no friends", HttpStatus.NOT_FOUND);
+
+        List<User> friends = userRepository.getAllByFriends(friendIds);
+        log.info("Found {} friends for user {}", friends.size(), userId);
+
+        List<String> retrievedFriendIds = friends.stream()
+                .map(User::getId)
+                .toList();
+
+        List<FriendResponse> friendResponses = friends.stream()
+                .map(friend -> FriendResponse.builder()
+                        .id(friend.getId())
+                        .name(friend.getFirstName() + " " + friend.getLastName())
+                        .avatar(friend.getAvatar())
+                        .build())
+                .toList();
+        log.info("Returning {} friends for user {}", friendResponses.size(), userId);
+        return friendResponses;
     }
 
     @Override
@@ -95,7 +120,10 @@ public class FriendServiceImpl implements FriendService {
     @Override
     public void acceptFriendRequest(String receiverId) {
         String userId = getCurrentUserId();
-        Optional<Friend> friendRequest = friendRepository.findById(receiverId);
+        Optional<Friend> friendRequest = friendRepository.findBySenderId(userId);
+
+        // Check if request is not found
+        throwIf(friendRequest.isEmpty(), "Friend request not found with id: {}", "Friend request not found with id: " + receiverId, HttpStatus.NOT_FOUND);
 
         // Check if the friend request is not pending
         throwIf(friendRequest.get().getStatus() != FriendStatus.PENDING, "Friend request is not pending", "Friend request is not pending", HttpStatus.BAD_REQUEST);

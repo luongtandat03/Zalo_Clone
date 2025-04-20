@@ -12,6 +12,7 @@ package vn.edu.iuh.fit.zalo_app_be.repository;
  */
 
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 import vn.edu.iuh.fit.zalo_app_be.model.Friend;
 import vn.edu.iuh.fit.zalo_app_be.model.User;
@@ -25,5 +26,6 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     User findByEmail(String email);
 
-    List<User> getAllByFriends(List<String> friends);
+    @Query("{ '_id': { $in: ?0 } }")
+    List<User> getAllByFriends(List<String> friendIds);
 }
