@@ -162,18 +162,58 @@ public class FriendServiceImpl implements FriendService {
     public void deleteFriend(String friendId) {
         String userId = getCurrentUserId();
         Optional<User> user = findUserById(userId, "User not found with id: " + userId);
+        Optional<User> friend = findUserById(friendId, "Friend not found with id: " + friendId);
 
+        // Check if the user and friend are not friends
+        throwIf(!user.get().getFriends().contains(friendId), "User and friend are not friends", "User and friend are not friends", HttpStatus.BAD_REQUEST);
 
+        user.get().getFriends().remove(friendId);
+        friend.get().getFriends().remove(userId);
+
+        userRepository.save(user.get());
+        userRepository.save(friend.get());
+
+        log.info("Friend deleted from {} to {}", userId, friendId);
     }
+
 
     @Override
     public void blockUser(String blockedUserId) {
+        String userId = getCurrentUserId();
 
+        Optional<User> user = findUserById(userId, "User not found with id: " + userId);
+        Optional<User> blockedUser = findUserById(blockedUserId, "Blocked user not found with id: " + blockedUserId);
+
+        // Check if the user is already blocked
+        throwIf(user.get().getBlocks().contains(blockedUserId), "User is already blocked", "User is already blocked", HttpStatus.BAD_REQUEST);
+
+        if(user.get().getFriends().contains(blockedUserId)){
+            user.get().getFriends().remove(userId);
+            blockedUser.get().getFriends().remove(blockedUserId);
+            userRepository.save(blockedUser.get());
+        }
+
+        // Add the blocked user to the user's blocks list
+        user.get().getBlocks().add(blockedUserId);
+        userRepository.save(user.get());
+
+        log.info("User {} blocked user {}", userId, blockedUserId);
     }
 
     @Override
     public void unblockUser(String blockedUserId) {
+        String userId = getCurrentUserId();
+        Optional<User> user = findUserById(userId, "User not found with id: " + userId);
+        Optional<User> blockedUser = findUserById(blockedUserId, "Blocked user not found with id: " + blockedUserId);
 
+        // Check if the user is not blocked
+        throwIf(!user.get().getBlocks().contains(blockedUserId), "User is not blocked", "User is not blocked", HttpStatus.BAD_REQUEST);
+
+        // Remove the blocked user from the user's blocks list
+        user.get().getBlocks().remove(blockedUserId);
+        userRepository.save(user.get());
+
+        log.info("User {} unblocked user {}", userId, blockedUserId);
     }
 
     private String getCurrentUserId() {

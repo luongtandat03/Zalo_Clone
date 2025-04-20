@@ -60,4 +60,37 @@ public class FriendController {
         friendService.acceptFriendRequest(requestId);
         return ResponseEntity.ok(Map.of("message", "Friend request accepted"));
     }
+
+    @PostMapping("/request/{requestId}/cancel")
+    @Operation(summary = "Cancel friend request", description = "Cancel a sent friend request")
+    public ResponseEntity<Map<String, String>> cancelFriendRequest(@PathVariable String requestId) {
+        log.info("Canceling friend request with ID {}", requestId);
+        friendService.cancelFriendRequest(requestId);
+        return ResponseEntity.ok(Map.of("message", "Friend request canceled"));
+    }
+
+    @DeleteMapping("/{friendId}")
+    @Operation(summary = "Delete friend", description = "Delete a friend from the friends list")
+    public ResponseEntity<Map<String, String>> deleteFriend(@PathVariable String friendId) {
+        log.info("Deleting friend with ID {}", friendId);
+        friendService.deleteFriend(friendId);
+        return ResponseEntity.ok(Map.of("message", "Friend deleted"));
+    }
+
+    @PostMapping("/block/{blockedUserId}")
+    @Operation(summary = "Block user", description = "Block a user")
+    public ResponseEntity<Map<String, String>> blockUser(@PathVariable String blockedUserId) {
+        log.info("Blocking user with ID {}", blockedUserId);
+        friendService.blockUser(blockedUserId);
+        return ResponseEntity.ok(Map.of("message", "User blocked"));
+    }
+
+    @PostMapping("/unblock/{blockedUserId}")
+    @Operation(summary = "Unblock user", description = "Unblock a user")
+    public ResponseEntity<Map<String, String>> unblockUser(@PathVariable String blockedUserId) {
+        log.info("Unblocking user with ID {}", blockedUserId);
+        friendService.unblockUser(blockedUserId);
+        return ResponseEntity.ok(Map.of("message", "User unblocked"));
+    }
+
 }

@@ -12,7 +12,5 @@ package vn.edu.iuh.fit.zalo_app_be.common;
 
 public enum FriendStatus {
     PENDING,
-    ACCEPTED,
-    REJECTED,
-    BLOCKED,
+    ACCEPTED
 }
