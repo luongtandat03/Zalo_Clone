@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -109,12 +110,12 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private void validateUser(String senderId, String receiverId) {
-        User userSender = userRepository.findById(senderId);
-        if (userSender == null) {
+        Optional<User> userSender = userRepository.findById(senderId);
+        if (userSender.isEmpty()) {
             throw new ResourceNotFoundException("User not found");
         }
-        User userReceiver = userRepository.findById(receiverId);
-        if (userReceiver == null) {
+        Optional<User> userReceiver = userRepository.findById(receiverId);
+        if (userReceiver.isEmpty()) {
             throw new ResourceNotFoundException("User not found");
         }
     }

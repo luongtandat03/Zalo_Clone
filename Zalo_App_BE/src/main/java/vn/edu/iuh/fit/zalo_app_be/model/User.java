@@ -23,9 +23,7 @@ import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
+import java.util.*;
 
 @Getter
 @Setter
@@ -57,6 +55,10 @@ public class User implements UserDetails, Serializable {
     private String username;
 
     private String password;
+
+    private List<String> friends = new ArrayList<>();
+
+    private List<String> blocks = new ArrayList<>();
 
     @CreatedDate
     private LocalDateTime createdAt;

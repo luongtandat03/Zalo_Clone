@@ -45,14 +45,6 @@ public class MessageController {
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final UserRepository userRepository;
 
-    @MessageMapping("/chat.send")
-    public void sendMessage(@Payload MessageRequest request) {
-        messageService.sendMessage(request);
-        simpMessagingTemplate.convertAndSendToUser(request.getReceiverId(), "/queue/messages", request);
-        log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
-        simpMessagingTemplate.convertAndSendToUser(request.getSenderId(), "/queue/messages", request);
-    }
-
     @GetMapping("/chat-history")
     public ResponseEntity<List<MessageResponse>> getChatHistory(@PathVariable String userId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
