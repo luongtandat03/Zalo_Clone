@@ -13,19 +13,20 @@ package vn.edu.iuh.fit.zalo_app_be.controller.request;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
+import vn.edu.iuh.fit.zalo_app_be.common.Gender;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
+
+import java.util.Date;
 
 @Getter
 public class UserRegisterRequest {
-    @NotBlank(message = "Username is required")
     private String username;
-    @NotBlank(message = "Password is required")
     private String password;
-    @Email(message = "Email is not valid")
     private String email;
-    @NotBlank(message = "Phone is required")
     private String phone;
-    @NotBlank(message = "Avatar is required")
-    private String avatar;
+    private String firstName;
+    private String lastName;
+    private Date birthday;
+    private Gender gender;
     private UserStatus status;
 }

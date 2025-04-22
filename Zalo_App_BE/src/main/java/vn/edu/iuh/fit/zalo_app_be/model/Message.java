@@ -45,4 +45,5 @@ public class Message {
         this.createdAt = createAt;
         this.updatedAt = updateAt;
     }
+
 }

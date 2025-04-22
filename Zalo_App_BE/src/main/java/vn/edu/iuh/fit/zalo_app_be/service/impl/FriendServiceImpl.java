@@ -30,7 +30,6 @@ import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,7 +43,7 @@ public class FriendServiceImpl implements FriendService {
     public List<Friend> getPendingFriendRequests() {
         String userId = getCurrentUserId();
 
-        return friendRepository.findBySenderIdAndStatus(userId, FriendStatus.PENDING);
+        return friendRepository.findByReceiverIdAndStatus(userId, FriendStatus.PENDING);
     }
 
     @Override
@@ -118,12 +117,12 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
-    public void acceptFriendRequest(String receiverId) {
+    public void acceptFriendRequest(String requestId) {
         String userId = getCurrentUserId();
-        Optional<Friend> friendRequest = friendRepository.findBySenderId(userId);
+        Optional<Friend> friendRequest = friendRepository.findById(requestId);
 
         // Check if request is not found
-        throwIf(friendRequest.isEmpty(), "Friend request not found with id: {}", "Friend request not found with id: " + receiverId, HttpStatus.NOT_FOUND);
+        throwIf(friendRequest.isEmpty(), "Friend request not found with id: {}", "Friend request not found with id: " + requestId, HttpStatus.NOT_FOUND);
 
         // Check if the friend request is not pending
         throwIf(friendRequest.get().getStatus() != FriendStatus.PENDING, "Friend request is not pending", "Friend request is not pending", HttpStatus.BAD_REQUEST);
@@ -133,10 +132,13 @@ public class FriendServiceImpl implements FriendService {
         friendRepository.save(friendRequest.get());
 
         // Add the sender and receiver to each other's friends list
-        Optional<User> user = findUserById(userId, "User not found with id: " + userId);
+        String senderId = friendRequest.get().getSenderId();
+        String receiverId = friendRequest.get().getReceiverId();
+
+        Optional<User> user = findUserById(senderId, "User not found with id: " + userId);
         Optional<User> friend = findUserById(receiverId, "Friend not found with id: " + receiverId);
         user.get().getFriends().add(receiverId);
-        friend.get().getFriends().add(userId);
+        friend.get().getFriends().add(senderId);
         userRepository.save(user.get());
         userRepository.save(friend.get());
 

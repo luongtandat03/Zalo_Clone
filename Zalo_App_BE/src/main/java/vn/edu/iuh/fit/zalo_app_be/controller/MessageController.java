@@ -42,16 +42,15 @@ import java.util.Objects;
 @RequestMapping("/message")
 public class MessageController {
     private final MessageService messageService;
-    private final SimpMessagingTemplate simpMessagingTemplate;
     private final UserRepository userRepository;
 
-    @GetMapping("/chat-history")
+    @GetMapping("/chat-history/{userId}")
     public ResponseEntity<List<MessageResponse>> getChatHistory(@PathVariable String userId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUser = userRepository.findByUsername(authentication.getName()).getId();
 
         if (currentUser == null) {
-            return ResponseEntity.status(401).build();
+            return ResponseEntity.status(401).build();  
         }
 
         return ResponseEntity.ok(messageService.getChatHistory(userId, currentUser));
@@ -72,9 +71,7 @@ public class MessageController {
         try {
             MessageRequest request = new MessageRequest(
                     senderId,
-                    receiverId,
-                    LocalDateTime.now(),
-                    LocalDateTime.now()
+                    receiverId
             );
 
 

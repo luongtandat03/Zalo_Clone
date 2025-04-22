@@ -14,6 +14,7 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -55,6 +56,8 @@ public class UserServiceImpl implements UserService {
     private final Cloudinary cloudinary;
     private final RandomCodeGenerator randomCodeGenerator;
 
+    @Value("${avatar.default}")
+    private String avatarDefault;
     @Override
     public RegisterResponse register(UserRegisterRequest request) {
         User user = userRepository.findByUsername(request.getUsername());
@@ -62,14 +65,37 @@ public class UserServiceImpl implements UserService {
             throw new DulicatedUserException("User already exists");
         }
 
-        user = User.builder().username(request.getUsername()).password(passwordEncoder.encode(request.getPassword())).email(request.getEmail()).phone(request.getPhone()).avatar(request.getAvatar()).status(UserStatus.ACTIVE).build();
+        user = User.builder()
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .email(request.getEmail())
+                .phone(request.getPhone())
+                .avatar(avatarDefault)
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .birthday(request.getBirthday())
+                .gender(request.getGender())
+                .status(UserStatus.ACTIVE)
+                .build();
 
         user = userRepository.save(user);
 
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername());
         String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername());
 
-        return RegisterResponse.builder().userId(user.getId()).username(user.getUsername()).email(user.getEmail()).phone(user.getPhone()).avatar(user.getAvatar()).status(UserStatus.ACTIVE).accessToken(accessToken).refreshToken(refreshToken).build();
+        return RegisterResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .avatar(user.getAvatar())
+                .status(UserStatus.ACTIVE)
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .birthday(user.getBirthday())
+                .gender(user.getGender())
+                .accessToken(accessToken)
+                .refreshToken(refreshToken).build();
     }
 
     @Override
@@ -177,7 +203,20 @@ public class UserServiceImpl implements UserService {
 
         User user = (User) authentication.getPrincipal();
 
-        return UserResponse.builder().id(user.getId()).username(user.getUsername()).firstName(user.getFirstName()).lastName(user.getLastName()).birthday(user.getBirthday()).email(user.getEmail()).phone(user.getPhone()).gender(user.getGender()).status(user.getStatus()).avatar(user.getAvatar()).createdAt(user.getCreatedAt()).updateAt(user.getUpdateAt()).build();
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .birthday(user.getBirthday())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .gender(user.getGender())
+                .status(user.getStatus())
+                .avatar(user.getAvatar())
+                .createdAt(user.getCreatedAt())
+                .updateAt(user.getUpdateAt())
+                .build();
     }
 
     @Override

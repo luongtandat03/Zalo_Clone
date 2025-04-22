@@ -49,8 +49,8 @@ public class MessageServiceImpl implements MessageService {
                 request.getReceiverId(),
                 request.getContent(),
                 request.getType(),
-                request.getCreateAt(),
-                request.getUpdateAt()
+                LocalDateTime.now(),
+                LocalDateTime.now()
         );
         messageRepository.save(message);
         log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());

@@ -25,7 +25,7 @@ public interface FriendService {
 
     void sendFriendRequest(String receiverId);
 
-    void acceptFriendRequest(String receiverId);
+    void acceptFriendRequest(String requestId);
 
     void cancelFriendRequest(String receiverId);
 

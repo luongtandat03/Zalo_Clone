@@ -25,13 +25,9 @@ public class MessageRequest {
     private String receiverId;
     private String content;
     private MessageType type;
-    private LocalDateTime createAt;
-    private LocalDateTime updateAt;
 
-    public MessageRequest(String receiverId, String senderId, LocalDateTime updateAt, LocalDateTime createAt) {
+    public MessageRequest(String receiverId, String senderId) {
         this.receiverId = receiverId;
         this.senderId = senderId;
-        this.updateAt = updateAt;
-        this.createAt = createAt;
     }
 }
