@@ -1,3 +1,4 @@
+import axios from "axios";
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 // Lấy thông tin hồ sơ người dùng
@@ -19,32 +20,37 @@ export const fetchUserProfile = async () => {
   }
 };
 
-// Cập nhật hồ sơ người dùng
-export const updateUserProfile = async (updatedData) => {
+
+export const updateUserProfile = async (data) => {
   try {
     const formData = new FormData();
-    for (const key in updatedData) {
-      if (key === "avatar" && updatedData[key] instanceof File) {
-        formData.append("avatar", updatedData[key]);
-      } else {
-        formData.append(key, updatedData[key]);
-      }
+
+    // Tạo JSON cho 'request'
+    const requestData = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone,
+      gender: data.gender,
+      birthday: data.birthday,
+    };
+
+    formData.append("request", new Blob([JSON.stringify(requestData)], { type: "application/json" }));
+
+    if (data.avatar) {
+      formData.append("avatar", data.avatar); 
     }
 
-    const response = await fetch(`${API_BASE_URL}/user/update`, {
-      method: "PUT",
+    const response = await axios.put("/api/user/update", formData, {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        "Content-Type": "multipart/form-data",
+        Authorization: `Bearer ${localStorage.getItem("accessToken")}`, 
       },
-      body: formData,
     });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Failed to update profile");
-    }
-    return response.json();
+
+    return response.data;
   } catch (error) {
-    console.error("Error updating profile:", error);
+    console.error("Update profile failed", error);
     return null;
   }
 };
@@ -73,30 +79,6 @@ export const updatePassword = async (oldPassword, newPassword) => {
     return null;
   }
 };
-
-// Tải ảnh đại diện
-export const uploadAvatar = async (file) => {
-  try {
-    const formData = new FormData();
-    formData.append("avatar", file);
-
-    const response = await fetch(`${API_BASE_URL}/user/upload-avatar`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-      },
-      body: formData,
-    });
-    if (!response.ok) {
-      throw new Error("Upload failed");
-    }
-    return response.json();
-  } catch (error) {
-    console.error("Upload error:", error);
-    return null;
-  }
-};
-
 // 1. Lấy danh sách bạn bè hiện tại
 export const fetchFriendsList = async () => {
   try {

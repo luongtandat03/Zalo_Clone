@@ -123,6 +123,8 @@ const Login = () => {
         }
         : {
           username: formData.username,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
           password: formData.password,
           email: formData.email,
           phone: formData.phone,
