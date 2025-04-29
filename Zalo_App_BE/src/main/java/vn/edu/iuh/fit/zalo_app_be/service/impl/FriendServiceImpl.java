@@ -119,7 +119,7 @@ public class FriendServiceImpl implements FriendService {
     @Override
     public void acceptFriendRequest(String requestId) {
         String userId = getCurrentUserId();
-        Optional<Friend> friendRequest = friendRepository.findById(requestId);
+        Optional<Friend> friendRequest  = friendRepository.findById(requestId);
 
         // Check if request is not found
         throwIf(friendRequest.isEmpty(), "Friend request not found with id: {}", "Friend request not found with id: " + requestId, HttpStatus.NOT_FOUND);

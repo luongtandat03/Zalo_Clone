@@ -10,24 +10,25 @@ package vn.edu.iuh.fit.zalo_app_be.controller.request;
  * @date: 4/17/2025
  */
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
+import vn.edu.iuh.fit.zalo_app_be.model.MessageReference;
 
-import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
-@Getter
 @Setter
-@AllArgsConstructor
+@Getter
 public class MessageRequest {
     private String senderId;
     private String receiverId;
     private String content;
     private MessageType type;
-
-    public MessageRequest(String receiverId, String senderId) {
-        this.receiverId = receiverId;
-        this.senderId = senderId;
-    }
+    private List<String> imageUrls;
+    private List<Map<String, String>> videoInfos;
+    private String replyToMessageId;
+    private MessageReference forwardedFrom;
+    private List<String> deletedByUsers;
+    private boolean recalled;
 }

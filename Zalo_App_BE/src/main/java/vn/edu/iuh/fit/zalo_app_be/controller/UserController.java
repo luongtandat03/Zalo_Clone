@@ -13,6 +13,7 @@ package vn.edu.iuh.fit.zalo_app_be.controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -38,8 +39,9 @@ public class UserController {
         return userService.getUserCurrent();
     }
 
-    @PutMapping("/update")
-    public UserUpdateResponse updateUser(@RequestBody UserUpdateRequest request, @RequestPart(value = "avatar", required = false) MultipartFile file) {
+    @PutMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public UserUpdateResponse updateUser(@RequestPart(value = "request") UserUpdateRequest request,
+                                         @RequestPart(value = "avatar", required = false) MultipartFile file) {
         log.info("Update user request: {}", request.getEmail());
 
         return userService.updateUser(request, file);

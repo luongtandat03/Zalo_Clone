@@ -28,9 +28,13 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public void sendMessage(MessageRequest request) {
-        template.convertAndSendToUser(request.getReceiverId(), "/queue/messages", request);
-        log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
-        template.convertAndSendToUser(request.getSenderId(), "/queue/messages", request);
+        try {
+            template.convertAndSendToUser(request.getReceiverId(), "/queue/messages", request);
+            log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
+        } catch (Exception e) {
+            log.error("Error sending message: {}", e.getMessage());
+            throw new RuntimeException("Error sending message");
+        }
     }
 
     @Override

@@ -28,8 +28,21 @@ public class ChatController {
 
     @MessageMapping("/chat.send")
     public void sendMessage(@Payload MessageRequest request) {
-        messageService.sendMessage(request);
-        webSocketService.sendMessage(request);
-        log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
+        log.debug("Processing chat request: sender={}, receiver={}",
+                request.getSenderId(), request.getReceiverId());
+        try {
+            if (request.getSenderId() == null || request.getReceiverId() == null) {
+                throw new RuntimeException("Invalid message request: missing senderId or receiverId");
+            }
+
+            messageService.saveMessage(request);
+            webSocketService.sendMessage(request);
+            log.info("Message sent from {} to {}: {}",
+                    request.getSenderId(), request.getReceiverId(), request.getContent());
+        } catch (Exception e) {
+            log.error("Error processing message: sender={}, receiver={}, error={}",
+                    request.getSenderId(), request.getReceiverId(), e.getMessage());
+            throw e;
+        }
     }
 }

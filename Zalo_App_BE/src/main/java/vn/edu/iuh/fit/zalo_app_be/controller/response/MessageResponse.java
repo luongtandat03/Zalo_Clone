@@ -14,9 +14,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import vn.edu.iuh.fit.zalo_app_be.common.MessageStatus;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
+import vn.edu.iuh.fit.zalo_app_be.model.MessageReference;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -27,6 +31,14 @@ public class MessageResponse {
     private String recipientId;
     private String content;
     private MessageType type;
+    private List<String> imageUrls;
+    private List<Map<String, String>> videoInfos;
+    private String replyToMessageId;
+    private boolean recalled;
+    private List<String> deletedByUsers;
+    private MessageStatus status;
+    private MessageReference forwardedFrom;
+    private boolean isRead;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
 }

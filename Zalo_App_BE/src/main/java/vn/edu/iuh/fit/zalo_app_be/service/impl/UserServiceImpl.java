@@ -58,6 +58,7 @@ public class UserServiceImpl implements UserService {
 
     @Value("${avatar.default}")
     private String avatarDefault;
+
     @Override
     public RegisterResponse register(UserRegisterRequest request) {
         User user = userRepository.findByUsername(request.getUsername());

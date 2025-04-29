@@ -26,6 +26,7 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+      enabled: true
 
 springdoc:
   api-docs:
@@ -41,7 +42,7 @@ openapi:
     version: 1.0.0
 
 jwt:
-  expiryMinutes: 60
+  expiryMinutes: 10080
   expiryDay: 7
   accessKey: vp/W0H2km+ha54EMwdU0lsVb8JNtoFrRlXVgytwhCsA=
   refreshKey: w+7+dny0YjqUN/bwKsejjgkBUdRUOeI7Liqr3jn2cqM=

@@ -69,12 +69,9 @@ public class MessageController {
         }
 
         try {
-            MessageRequest request = new MessageRequest(
-                    senderId,
-                    receiverId
-            );
-
-
+            MessageRequest request = new MessageRequest();
+            request.setSenderId(senderId);
+            request.setReceiverId(receiverId);
             String url = messageService.uploadFile(file, request);
             return ResponseEntity.ok(Map.of("url", url));
         } catch (ResponseStatusException e) {
