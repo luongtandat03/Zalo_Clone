@@ -48,4 +48,17 @@ public class WebSocketServiceImpl implements WebSocketService {
         template.convertAndSendToUser(senderId, "queue/notifications", Map.of("type", FriendStatus.ACCEPTED, "receiver", receiverUsername));
         log.info("Friend request accepted notification sent to {} from {}", senderId, receiverUsername);
     }
+
+    @Override
+    public void notifyRecall(String messageId, String userId) {
+        template.convertAndSendToUser(userId, "/queue/notifications", Map.of("type", "RECALL", "messageId", messageId));
+        log.info("Recall notification sent for message {} to user {}", messageId, userId);
+    }
+
+    @Override
+    public void notifyDelete(String messageId, String userId) {
+        template.convertAndSendToUser(userId, "/queue/notifications", Map.of("type", "DELETE", "messageId", messageId));
+        log.info("Delete notification sent for message {} to user {}", messageId, userId);
+    }
+
 }

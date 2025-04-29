@@ -46,6 +46,11 @@ public class CustomizeRequestFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         log.info("{} - {}", request.getMethod(), request.getRequestURI());
+        if (request.getRequestURI().startsWith("/ws")) {
+            log.debug("WebSocket request, skipping authentication request: {}", request.getRequestURI());
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String authHeader = request.getHeader(AUTHORIZATION);
         if (StringUtils.hasLength(authHeader) && authHeader.startsWith("Bearer ")) {

@@ -152,6 +152,66 @@ public class MessageServiceImpl implements MessageService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public void recallMessage(String messageId, String userId) {
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if (messageOptional.isPresent()) {
+            Message message = messageOptional.get();
+            if (!message.getSenderId().equals(userId)) {
+                throw new ResourceNotFoundException("User not found");
+            }
+            message.setRecalled(true);
+
+            messageRepository.save(message);
+            log.info("Message recalled: {} for sender: {}", messageId, message.getSenderId());
+        } else {
+            throw new ResourceNotFoundException("Message not found");
+        }
+    }
+
+    @Override
+    public void deleteMessage(String messageId, String userId) {
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if(messageOptional.isEmpty()){
+            throw new ResourceNotFoundException("Message not found");
+        }
+
+        Message message = messageOptional.get();
+        Map<String, LocalDateTime> deleteBy = message.getDeleteBy();
+        deleteBy.put(userId, LocalDateTime.now());
+        message.setDeleteBy(deleteBy);
+
+        messageRepository.save(message);
+        log.info("Message deleted: {} for sender: {}", messageId, message.getSenderId());
+    }
+
+    @Override
+    public void forwardMessage(String messageId, String userId, String receiverId) {
+        validateUser(userId, receiverId);
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if(messageOptional.isEmpty()){
+            throw new ResourceNotFoundException("Message not found");
+        }
+        Message messageOriginal = messageOptional.get();
+
+        Message message = messageOptional.get();
+
+        message.setSenderId(userId);
+        message.setReceiverId(receiverId);
+        message.setContent(messageOriginal.getContent());
+        message.setType(messageOriginal.getType());
+        message.setImageUrls(messageOriginal.getImageUrls());
+        message.setVideoInfos(messageOriginal.getVideoInfos());
+        message.setForwardedFrom(new MessageReference(messageId, messageOriginal.getSenderId()));
+        message.setStatus(MessageStatus.SENT);
+        message.setCreatedAt(LocalDateTime.now());
+        message.setUpdatedAt(LocalDateTime.now());
+        message.setRead(false);
+
+        messageRepository.save(message);
+        log.info("Message forwarded: {} for sender: {}", messageId, userId);
+    }
+
     private void validateUser(String senderId, String receiverId) {
         Optional<User> userSender = userRepository.findById(senderId);
         if (userSender.isEmpty()) {
@@ -162,6 +222,7 @@ public class MessageServiceImpl implements MessageService {
             throw new ResourceNotFoundException("User not found");
         }
     }
+
 
 }
 

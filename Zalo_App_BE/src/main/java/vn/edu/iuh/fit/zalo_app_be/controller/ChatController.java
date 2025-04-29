@@ -15,9 +15,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Controller;
+import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
+
+import java.util.Map;
 
 @Controller
 @RequiredArgsConstructor
@@ -42,6 +45,75 @@ public class ChatController {
         } catch (Exception e) {
             log.error("Error processing message: sender={}, receiver={}, error={}",
                     request.getSenderId(), request.getReceiverId(), e.getMessage());
+            throw e;
+        }
+    }
+
+    @MessageMapping("/chat.recall")
+    public void recallMessage(@Payload Map<String,String> request) {
+        String messageId = request.get("messageId");
+        String userId = request.get("userId");
+
+        log.debug("Processing recall message request: messageId={}, userId={}",
+                messageId, userId);
+        try {
+            if (messageId == null || userId == null) {
+                throw new RuntimeException("Invalid recall message request: missing messageId or userId");
+            }
+
+            messageService.recallMessage(messageId, userId);
+            webSocketService.notifyRecall(messageId,userId);
+            log.info("Message recalled: messageId={}, userId={}",
+                    messageId,userId);
+        } catch (Exception e) {
+            log.error("Error processing recall message: messageId={}, userId={}, error={}",
+                    messageId,userId, e.getMessage());
+            throw e;
+        }
+    }
+
+    @MessageMapping("/chat.delete")
+    public void deleteMessage(@Payload Map<String,String> request) {
+        String messageId = request.get("messageId");
+        String userId = request.get("userId");
+
+        log.debug("Processing delete message request: messageId={}, userId={}",
+                messageId, userId);
+        try {
+            if (messageId == null || userId == null) {
+                throw new RuntimeException("Invalid delete message request: missing messageId or userId");
+            }
+
+            messageService.deleteMessage(messageId, userId);
+            webSocketService.notifyDelete(messageId, userId);
+            log.info("Message deleted: messageId={}, userId={}",
+                    messageId, userId);
+        } catch (Exception e) {
+            log.error("Error processing delete message: messageId={}, userId={}, error={}",
+                    messageId, userId, e.getMessage());
+            throw e;
+        }
+    }
+    @MessageMapping("/chat.forward")
+    public void forwardMessage(@Payload Map<String,String> request) {
+        String messageId = request.get("messageId");
+        String userId = request.get("userId");
+        String receiverId = request.get("receiverId");
+
+        log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}",
+                messageId, userId, receiverId);
+        try {
+            if (messageId == null || userId == null || receiverId == null) {
+                throw new RuntimeException("Invalid forward message request: missing messageId, userId or receiverId");
+            }
+
+            messageService.forwardMessage(messageId, userId, receiverId);
+            webSocketService.sendMessage(new MessageRequest(userId, receiverId, null, MessageType.FORWARD));
+            log.info("Message forwarded: messageId={}, userId={}, receiverId={}",
+                    messageId, userId, receiverId);
+        } catch (Exception e) {
+            log.error("Error processing forward message: messageId={}, userId={}, receiverId={}, error={}",
+                    messageId, userId, receiverId, e.getMessage());
             throw e;
         }
     }

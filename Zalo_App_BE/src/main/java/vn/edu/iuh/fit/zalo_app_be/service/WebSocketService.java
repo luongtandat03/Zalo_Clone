@@ -16,4 +16,6 @@ public interface WebSocketService {
     void sendMessage(MessageRequest request);
     void notifyFriendRequest(String receiverId, String senderUsername);
     void notifyFriendRequestAccepted(String sender, String receiverUsername);
+    void notifyRecall(String messageId, String userId);
+    void notifyDelete(String messageId, String userId);
 }

@@ -31,4 +31,11 @@ public class MessageRequest {
     private MessageReference forwardedFrom;
     private List<String> deletedByUsers;
     private boolean recalled;
+
+    public MessageRequest(String userId, String receiverId, Object o, MessageType messageType) {
+        this.senderId = userId;
+        this.receiverId = receiverId;
+        this.content = o.toString();
+        this.type = messageType;
+    }
 }

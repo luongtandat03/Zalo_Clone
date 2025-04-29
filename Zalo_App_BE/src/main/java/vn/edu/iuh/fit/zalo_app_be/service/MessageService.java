@@ -11,16 +11,17 @@ package vn.edu.iuh.fit.zalo_app_be.service;
  * @date: 4/16/2025
  */
 
-import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 
 import java.util.List;
 
-@Service
 public interface MessageService {
     void saveMessage(MessageRequest request);
     String uploadFile(MultipartFile files, MessageRequest request);
     List<MessageResponse> getChatHistory(String userId, String userOtherId);
+    void recallMessage(String messageId, String userId);
+    void deleteMessage(String messageId, String userId);
+    void forwardMessage(String messageId, String userId, String receiverId);
 }
