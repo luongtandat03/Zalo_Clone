@@ -16,15 +16,20 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import vn.edu.iuh.fit.zalo_app_be.common.FriendStatus;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
+import vn.edu.iuh.fit.zalo_app_be.model.Group;
+import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
+import vn.edu.iuh.fit.zalo_app_be.service.GroupService;
 import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j(topic = "WEB-SOCKET-SERVICE")
 public class WebSocketServiceImpl implements WebSocketService {
     private final SimpMessagingTemplate template;
+    private final GroupRepository groupRepository;
 
     @Override
     public void sendMessage(MessageRequest request) {
@@ -34,6 +39,27 @@ public class WebSocketServiceImpl implements WebSocketService {
         } catch (Exception e) {
             log.error("Error sending message: {}", e.getMessage());
             throw new RuntimeException("Error sending message");
+        }
+    }
+
+    @Override
+    public void sendGroupMessage(MessageRequest request) {
+        try {
+            Optional<Group> group = groupRepository.findById(request.getGroupId());
+            if (group.isEmpty()) {
+                log.error("Group not found: {}", request.getGroupId());
+                throw new RuntimeException("Group not found");
+            }
+            for (String memberId : group.get().getMemberIds()) {
+                if (!memberId.equals(request.getSenderId())) {
+                    template.convertAndSendToUser(memberId, "queue/messages", request);
+                    log.info("Group message sent from {} to {}: {}", request.getSenderId(), memberId, request.getContent());
+                }
+            }
+            log.info("Group message sent from {} to group {}: {}", request.getSenderId(), request.getGroupId(), request.getContent());
+        } catch (Exception e) {
+            log.error("Error sending group message: {}", e.getMessage());
+            throw new RuntimeException("Error sending group message");
         }
     }
 

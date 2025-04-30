@@ -22,9 +22,11 @@ import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.ResourceNotFoundException;
+import vn.edu.iuh.fit.zalo_app_be.model.Group;
 import vn.edu.iuh.fit.zalo_app_be.model.Message;
 import vn.edu.iuh.fit.zalo_app_be.model.MessageReference;
 import vn.edu.iuh.fit.zalo_app_be.model.User;
+import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 public class MessageServiceImpl implements MessageService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final GroupRepository groupRepository;
     private final Cloudinary cloudinary;
 
     @Override
@@ -104,7 +107,7 @@ public class MessageServiceImpl implements MessageService {
             message.setSenderId(request.getSenderId());
             message.setReceiverId(request.getReceiverId());
             message.setType(type);
-            if (type == MessageType.IMAGE) {
+            if (MessageType.IMAGE == type) {
                 message.setImageUrls(Collections.singletonList(url));
             } else if (type == MessageType.VIDEO) {
                 message.setVideoInfos(Collections.singletonList(Map.of("url", url, "thumbnail", thumbnail != null ? thumbnail : url)));
@@ -131,24 +134,22 @@ public class MessageServiceImpl implements MessageService {
     public List<MessageResponse> getChatHistory(String userId, String userOtherId) {
         return messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(userId, userOtherId, userId, userOtherId)
                 .stream()
-                .map(message -> new MessageResponse(
-                                message.getSenderId(),
-                                message.getReceiverId(),
-                                message.getContent(),
-                                message.getType(),
-                                message.getImageUrls(),
-                                message.getVideoInfos(),
-                                message.getReplyToMessageId(),
-                                message.isRecalled(),
-                                message.getDeleteBy() != null ? new ArrayList<>(message.getDeleteBy().keySet()) : null,
-                                message.getStatus(),
-                                message.getForwardedFrom() != null ? new MessageReference(
-                                        message.getForwardedFrom().getMessageId(), message.getForwardedFrom().getOriginalSenderId()) : null,
-                                message.isRead(),
-                                message.getCreatedAt(),
-                                message.getUpdatedAt()
-                        )
-                ).sorted(Comparator.comparing(MessageResponse::getCreateAt))
+                .map(this::convertToMessageResponse)
+                .sorted(Comparator.comparing(MessageResponse::getCreateAt))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<MessageResponse> getGroupChatHistory(String userId, String groupId) {
+        Optional<Group> group = groupRepository.findById(groupId);
+        if (group.isEmpty()) {
+            throw new ResourceNotFoundException("Group not found");
+        }
+
+        return messageRepository.findByGroupId(groupId)
+                .stream()
+                .map(this::convertToMessageResponse)
+                .sorted(Comparator.comparing(MessageResponse::getCreateAt))
                 .collect(Collectors.toList());
     }
 
@@ -172,7 +173,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public void deleteMessage(String messageId, String userId) {
         Optional<Message> messageOptional = messageRepository.findById(messageId);
-        if(messageOptional.isEmpty()){
+        if (messageOptional.isEmpty()) {
             throw new ResourceNotFoundException("Message not found");
         }
 
@@ -189,7 +190,7 @@ public class MessageServiceImpl implements MessageService {
     public void forwardMessage(String messageId, String userId, String receiverId) {
         validateUser(userId, receiverId);
         Optional<Message> messageOptional = messageRepository.findById(messageId);
-        if(messageOptional.isEmpty()){
+        if (messageOptional.isEmpty()) {
             throw new ResourceNotFoundException("Message not found");
         }
         Message messageOriginal = messageOptional.get();
@@ -223,6 +224,25 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
+    private MessageResponse convertToMessageResponse(Message message) {
+        return new MessageResponse(
+                message.getSenderId(),
+                message.getReceiverId(),
+                message.getContent(),
+                message.getType(),
+                message.getImageUrls(),
+                message.getVideoInfos(),
+                message.getReplyToMessageId(),
+                message.isRecalled(),
+                message.getDeleteBy() != null ? new ArrayList<>(message.getDeleteBy().keySet()) : null,
+                message.getStatus(),
+                message.getForwardedFrom() != null ? new MessageReference(
+                        message.getForwardedFrom().getMessageId(), message.getForwardedFrom().getOriginalSenderId()) : null,
+                message.isRead(),
+                message.getCreatedAt(),
+                message.getUpdatedAt()
+        );
+    }
 
 }
 

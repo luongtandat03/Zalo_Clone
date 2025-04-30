@@ -36,6 +36,7 @@ public class Message {
     private String senderId;
     @Indexed
     private String receiverId;
+    private String groupId;
     private String content;
     private MessageType type;
     private boolean recalled = false;

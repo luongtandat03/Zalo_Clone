@@ -39,9 +39,15 @@ public class ChatController {
             }
 
             messageService.saveMessage(request);
-            webSocketService.sendMessage(request);
-            log.info("Message sent from {} to {}: {}",
-                    request.getSenderId(), request.getReceiverId(), request.getContent());
+            if (request.getGroupId() != null) {
+                webSocketService.sendGroupMessage(request);
+                log.info("Group message sent from {} to group {}: {}",
+                        request.getSenderId(), request.getGroupId(), request.getContent());
+            } else {
+                webSocketService.sendMessage(request);
+                log.info("Message sent from {} to {}: {}",
+                        request.getSenderId(), request.getReceiverId(), request.getContent());
+            }
         } catch (Exception e) {
             log.error("Error processing message: sender={}, receiver={}, error={}",
                     request.getSenderId(), request.getReceiverId(), e.getMessage());
@@ -50,7 +56,7 @@ public class ChatController {
     }
 
     @MessageMapping("/chat.recall")
-    public void recallMessage(@Payload Map<String,String> request) {
+    public void recallMessage(@Payload Map<String, String> request) {
         String messageId = request.get("messageId");
         String userId = request.get("userId");
 
@@ -62,18 +68,18 @@ public class ChatController {
             }
 
             messageService.recallMessage(messageId, userId);
-            webSocketService.notifyRecall(messageId,userId);
+            webSocketService.notifyRecall(messageId, userId);
             log.info("Message recalled: messageId={}, userId={}",
-                    messageId,userId);
+                    messageId, userId);
         } catch (Exception e) {
             log.error("Error processing recall message: messageId={}, userId={}, error={}",
-                    messageId,userId, e.getMessage());
+                    messageId, userId, e.getMessage());
             throw e;
         }
     }
 
     @MessageMapping("/chat.delete")
-    public void deleteMessage(@Payload Map<String,String> request) {
+    public void deleteMessage(@Payload Map<String, String> request) {
         String messageId = request.get("messageId");
         String userId = request.get("userId");
 
@@ -94,11 +100,13 @@ public class ChatController {
             throw e;
         }
     }
+
     @MessageMapping("/chat.forward")
-    public void forwardMessage(@Payload Map<String,String> request) {
+    public void forwardMessage(@Payload Map<String, String> request) {
         String messageId = request.get("messageId");
         String userId = request.get("userId");
         String receiverId = request.get("receiverId");
+        String groupId = request.get("groupId");
 
         log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}",
                 messageId, userId, receiverId);
@@ -108,9 +116,9 @@ public class ChatController {
             }
 
             messageService.forwardMessage(messageId, userId, receiverId);
-            webSocketService.sendMessage(new MessageRequest(userId, receiverId, null, MessageType.FORWARD));
-            log.info("Message forwarded: messageId={}, userId={}, receiverId={}",
-                    messageId, userId, receiverId);
+            webSocketService.sendMessage(new MessageRequest(userId, receiverId, groupId, MessageType.FORWARD));
+            log.info("Message forwarded: messageId={}, userId={}, receiverId={}, groupId={}",
+                    messageId, userId, receiverId, groupId);
         } catch (Exception e) {
             log.error("Error processing forward message: messageId={}, userId={}, receiverId={}, error={}",
                     messageId, userId, receiverId, e.getMessage());

@@ -14,6 +14,7 @@ import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 
 public interface WebSocketService {
     void sendMessage(MessageRequest request);
+    void sendGroupMessage(MessageRequest request);
     void notifyFriendRequest(String receiverId, String senderUsername);
     void notifyFriendRequestAccepted(String sender, String receiverUsername);
     void notifyRecall(String messageId, String userId);

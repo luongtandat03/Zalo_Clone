@@ -11,6 +11,7 @@ package vn.edu.iuh.fit.zalo_app_be.controller.request;
  */
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.model.MessageReference;
@@ -20,10 +21,12 @@ import java.util.Map;
 
 @Setter
 @Getter
+@NoArgsConstructor
 public class MessageRequest {
     private String senderId;
     private String receiverId;
     private String content;
+    private String groupId;
     private MessageType type;
     private List<String> imageUrls;
     private List<Map<String, String>> videoInfos;

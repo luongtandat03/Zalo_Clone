@@ -32,6 +32,7 @@ import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import vn.edu.iuh.fit.zalo_app_be.service.UserService;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,16 +51,30 @@ public class MessageController {
         String currentUser = userRepository.findByUsername(authentication.getName()).getId();
 
         if (currentUser == null) {
-            return ResponseEntity.status(401).build();  
+            return ResponseEntity.status(401).build();
         }
 
         return ResponseEntity.ok(messageService.getChatHistory(userId, currentUser));
     }
 
+    @GetMapping("/chat-history/group/{groupId}")
+    public ResponseEntity<List<MessageResponse>> getGroupChatHistory(@PathVariable String groupId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUser = userRepository.findByUsername(authentication.getName()).getId();
+
+        if (currentUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        return ResponseEntity.ok(messageService.getGroupChatHistory(groupId, currentUser));
+    }
+
     @PostMapping("/upload-file")
-    public ResponseEntity<Map<Object, String>> uploadFile(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("receiverId") String receiverId
+    public ResponseEntity<List<String>> uploadFile(
+            @RequestParam("file") List<MultipartFile> files,
+            @RequestParam(value = "receiverId", required = false) String receiverId,
+            @RequestParam(value = "groupId", required = false) String groupId,
+            @RequestParam(value = "replyToMessageId", required = false) String replyToMessageId
     ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String senderId = userRepository.findByUsername(authentication.getName()).getId();
@@ -68,16 +83,17 @@ public class MessageController {
             return ResponseEntity.status(401).build();
         }
 
-        try {
+        List<String> fileUrls = new ArrayList<>();
+        for (MultipartFile file : files) {
             MessageRequest request = new MessageRequest();
             request.setSenderId(senderId);
             request.setReceiverId(receiverId);
-            String url = messageService.uploadFile(file, request);
-            return ResponseEntity.ok(Map.of("url", url));
-        } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode()).body(Map.of("error", Objects.requireNonNull(e.getReason())));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to upload file"));
+            request.setGroupId(groupId);
+            request.setReplyToMessageId(replyToMessageId);
+            fileUrls.add(messageService.uploadFile(file, request));
         }
+        log.info("Uploaded files: {}", fileUrls);
+        return new ResponseEntity<>(fileUrls, HttpStatus.OK);
     }
+
 }
