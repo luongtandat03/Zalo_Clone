@@ -42,7 +42,9 @@ import vn.edu.iuh.fit.zalo_app_be.service.JwtService;
 import vn.edu.iuh.fit.zalo_app_be.service.UserService;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j(topic = "USER-SERVICE")
@@ -313,5 +315,26 @@ public class UserServiceImpl implements UserService {
         passwordResetTokenRepository.save(resetToken);
 
         log.info("Password reset successfully for user: {}", user.getUsername());
+    }
+
+    @Override
+    public List<UserResponse> findUsersByIds(List<String> ids) {
+        List<User> users = userRepository.findAllById(ids);
+        return users.stream()
+                .map(user -> new UserResponse(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getFirstName(),
+                        user.getLastName(),
+                        user.getBirthday(),
+                        user.getEmail(),
+                        user.getPhone(),
+                        user.getGender(),
+                        user.getStatus(),
+                        user.getAvatar(),
+                        user.getCreatedAt(),
+                        user.getUpdateAt()
+                ))
+                .collect(Collectors.toList());
     }
 }

@@ -21,13 +21,15 @@ import java.util.List;
 public interface GroupService {
     GroupResponse createGroup(GroupRequest request);
 
-    GroupResponse addMember(String groupId, String userId, String requesterId);
+    GroupResponse addMember(String groupId, List<String> userIds);
 
-    GroupResponse removeMember(String groupId, String userId, String requesterId);
+    GroupResponse removeMember(String groupId, String userId);
 
-    void dissolveGroup(String groupId, String requesterId);
+    void dissolveGroup(String groupId);
 
-    GroupResponse assignRole(String groupId, String userId, Roles role, String requesterId);
+    GroupResponse assignRole(String groupId, String userId, Roles role);
 
     List<GroupResponse> getGroupByUser(String userId);
+
+   GroupResponse getUserInGroup(String groupId);
 }

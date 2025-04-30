@@ -23,6 +23,4 @@ public class GroupRequest {
     private String name;
     private List<String> memberIds;
     private Map<String, Roles> roles;
-    private LocalDateTime createAt;
-    private LocalDateTime updateAt;
 }

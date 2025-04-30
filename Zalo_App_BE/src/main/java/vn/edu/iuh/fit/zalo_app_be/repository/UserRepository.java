@@ -14,6 +14,7 @@ package vn.edu.iuh.fit.zalo_app_be.repository;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.UserResponse;
 import vn.edu.iuh.fit.zalo_app_be.model.Friend;
 import vn.edu.iuh.fit.zalo_app_be.model.User;
 

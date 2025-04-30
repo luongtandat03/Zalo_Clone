@@ -10,9 +10,7 @@ package vn.edu.iuh.fit.zalo_app_be.controller.response;
  * @date: 4/11/2025
  */
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import vn.edu.iuh.fit.zalo_app_be.common.Gender;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 
@@ -22,6 +20,8 @@ import java.util.Date;
 @Getter
 @Setter
 @Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class UserResponse {
     private String id;
     private String username;

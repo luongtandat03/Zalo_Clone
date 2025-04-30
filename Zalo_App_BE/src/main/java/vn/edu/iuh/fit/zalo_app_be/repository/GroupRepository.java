@@ -20,4 +20,5 @@ import java.util.List;
 @Repository
 public interface GroupRepository extends MongoRepository<Group, String> {
     List<Group> findByMemberIdsContaining(String userId);
+
 }

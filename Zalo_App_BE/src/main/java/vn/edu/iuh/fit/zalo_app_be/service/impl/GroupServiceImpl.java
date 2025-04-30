@@ -12,6 +12,8 @@ package vn.edu.iuh.fit.zalo_app_be.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import vn.edu.iuh.fit.zalo_app_be.common.Roles;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.GroupRequest;
@@ -23,7 +25,9 @@ import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.GroupService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -40,10 +44,17 @@ public class GroupServiceImpl implements GroupService {
         Group group = new Group();
         group.setName(request.getName());
         group.setCreateId(request.getCreateId());
-        group.setMemberIds(request.getMemberIds());
-        group.setRoles(request.getRoles());
-        group.setCreateAt(request.getCreateAt());
-        group.setUpdateAt(request.getUpdateAt());
+
+        List<String> memberIds = request.getMemberIds();
+        memberIds.add(request.getCreateId());
+
+        group.setMemberIds(memberIds);
+
+        Map<String, Roles> roles = request.getRoles() != null ? new HashMap<>(request.getRoles()) : new HashMap<>();
+
+        roles.put(request.getCreateId(), Roles.ADMIN);
+        group.setRoles(roles);
+
         group.setActive(true);
 
         groupRepository.save(group);
@@ -54,35 +65,43 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public GroupResponse addMember(String groupId, String userId, String requesterId) {
+    public GroupResponse addMember(String groupId, List<String> userIds) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        User user = (User) authentication.getPrincipal();
+
         Optional<Group> group = groupRepository.findById(groupId);
         if (group.isEmpty()) {
             throw new ResourceNotFoundException("Group not found");
         }
-        validateUser(userId);
-        validateAdmin(group.get(), requesterId);
+        validateAdmin(group.get(), user.getId());
 
-        if (!group.get().getMemberIds().contains(userId)) {
-            group.get().getMemberIds().add(userId);
-            group.get().getRoles().put(userId, Roles.MEMBER);
+        for (String userId : userIds) {
+            validateUser(userId);
+            if (!group.get().getMemberIds().contains(userId)) {
+                group.get().getMemberIds().add(userId);
+                group.get().getRoles().put(userId, Roles.MEMBER);
 
-            groupRepository.save(group.get());
-
-            log.info("User {} added to group {}", userId, groupId);
-
-            return convertToGroupResponse(group.get());
-        } else {
-            throw new ResourceNotFoundException("User already in the group");
+                log.info("User {} added to group {}", userId, groupId);
+            } else {
+                throw new ResourceNotFoundException("User already in the group");
+            }
         }
+        groupRepository.save(group.get());
+
+        return convertToGroupResponse(group.get());
     }
 
     @Override
-    public GroupResponse removeMember(String groupId, String userId, String requesterId) {
+    public GroupResponse removeMember(String groupId, String userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        User user = (User) authentication.getPrincipal();
         Optional<Group> group = groupRepository.findById(groupId);
         if (group.isEmpty()) {
             throw new ResourceNotFoundException("Group not found");
         }
-        validateAdmin(group.get(), requesterId);
+        validateAdmin(group.get(), user.getId());
 
         if (group.get().getMemberIds().contains(userId)) {
             group.get().getMemberIds().remove(userId);
@@ -99,24 +118,30 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public void dissolveGroup(String groupId, String requesterId) {
+    public void dissolveGroup(String groupId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        User user = (User) authentication.getPrincipal();
         Optional<Group> group = groupRepository.findById(groupId);
         if (group.isEmpty()) {
             throw new ResourceNotFoundException("Group not found");
         }
         group.get().setActive(false);
         groupRepository.save(group.get());
-        log.info("Group {} dissolved by {}", groupId, requesterId);
+        log.info("Group {} dissolved by {}", groupId, user.getId());
     }
 
     @Override
-    public GroupResponse assignRole(String groupId, String userId, Roles role, String requesterId) {
+    public GroupResponse assignRole(String groupId, String userId, Roles role) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        User user = (User) authentication.getPrincipal();
         Optional<Group> group = groupRepository.findById(groupId);
         if (group.isEmpty()) {
             throw new ResourceNotFoundException("Group not found");
         }
 
-        validateAdmin(group.get(), requesterId);
+        validateAdmin(group.get(), user.getId());
 
         if (!group.get().getMemberIds().contains(userId)) {
             throw new ResourceNotFoundException("User not in the group");
@@ -139,6 +164,15 @@ public class GroupServiceImpl implements GroupService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public GroupResponse getUserInGroup(String groupId) {
+        Optional<Group> group = groupRepository.findById(groupId);
+        if (group.isEmpty()) {
+            throw new ResourceNotFoundException("Group not found");
+        }
+        return convertToGroupResponse(group.get());
+    }
+
     private void validateUser(String userId) {
         Optional<User> user = userRepository.findById(userId);
         if (user.isEmpty()) {
@@ -147,7 +181,8 @@ public class GroupServiceImpl implements GroupService {
     }
 
     private void validateAdmin(Group group, String userId) {
-        if (!group.getRoles().getOrDefault(userId, Roles.valueOf("")).equals(Roles.ADMIN)) {
+        Roles role = group.getRoles().get(userId);
+        if (!role.equals(Roles.ADMIN)) {
             throw new ResourceNotFoundException("Only admin can perform this action");
         }
     }
