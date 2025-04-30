@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserRegisterRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserUpdateRequest;
+import vn.edu.iuh.fit.zalo_app_be.controller.request.VerifyEmailRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.*;
 
 import java.util.List;
@@ -37,4 +38,9 @@ public interface UserService {
     void resetPassword(String token, String newPassword);
 
     List<UserResponse> findUsersByIds(List<String> ids);
+
+    void sendVerificationEmail(String email);
+
+    RegisterResponse verifyEmail(VerifyEmailRequest request);
+
 }

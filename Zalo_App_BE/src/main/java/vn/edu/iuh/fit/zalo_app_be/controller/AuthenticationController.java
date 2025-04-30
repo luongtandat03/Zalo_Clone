@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.SignInRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserRegisterRequest;
+import vn.edu.iuh.fit.zalo_app_be.controller.request.VerifyEmailRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.RegisterResponse;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.SignInResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.UnauthorizedException;
@@ -89,5 +90,19 @@ public class AuthenticationController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to reset password"));
         }
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<Void> sendVerificationEmail(@RequestBody String email) {
+        log.info("Sending verification email to: {}", email);
+        userService.sendVerificationEmail(email);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @PostMapping("/verify-email-code")
+    public ResponseEntity<RegisterResponse> verifyEmail(@RequestBody VerifyEmailRequest request) {
+        log.info("Verifying email with code: {}", request.getCode());
+        RegisterResponse response = userService.verifyEmail(request);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 }

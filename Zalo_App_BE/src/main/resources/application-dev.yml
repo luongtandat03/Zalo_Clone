@@ -16,6 +16,7 @@ spring:
     port: 587
     username: mailcv097@gmail.com
     password: cjgpjfqbpicjofqc
+    reset-code-expiry-minutes: 10
     properties:
       mail:
         smtp:

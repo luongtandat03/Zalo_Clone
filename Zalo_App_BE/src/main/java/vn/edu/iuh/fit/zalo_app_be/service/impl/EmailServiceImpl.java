@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import vn.edu.iuh.fit.zalo_app_be.service.EmailService;
 
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -28,26 +29,82 @@ import java.security.SecureRandom;
 public class EmailServiceImpl implements EmailService {
     private final JavaMailSender javaMailSender;
 
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
+    @Value("${spring.mail.reset-code-expiry-minutes}")
+    private int resetCodeExpiryMinutes;
+
+    private String appName = "Zalo App";
 
     @Override
     public void sendPasswordResetEmail(String email, String code) {
         String subject = "Reset Your Password";
-        String content = "Please Enter the code below to reset your password:\n" +
-                code + "\n\nThis link will expire in 10 minutes.";
+        String content = buildEmailContent(email, code);
 
         try{
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setTo(email);
-            helper.setSubject(subject);
-            helper.setText(content);
+            setEmailContent(message, helper, subject, content, email);
             javaMailSender.send(message);
             log.info("Password reset email sent to: {}", email);
         }catch (MessagingException e){
             log.error("Error while creating email message: {}", e.getMessage());
             throw new RuntimeException("Failed to create email message", e);
         }
+    }
+
+    @Override
+    public void sendVerificationEmail(String email, String code) {
+        String subject = "Verify Your Email";
+        String content = buildEmailContent(email, code);
+
+        try{
+            MimeMessage message = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            setEmailContent(message, helper, subject, content, email);
+            javaMailSender.send(message);
+            log.info("Verification email sent to: {}", email);
+        }catch (MessagingException e){
+            log.error("Error while creating email message: {}", e.getMessage());
+            throw new RuntimeException("Failed to create email message", e);
+        }
+    }
+
+
+    private void setEmailContent(MimeMessage message, MimeMessageHelper helper, String subject, String content, String email) throws MessagingException {
+        helper.setTo(email);
+        helper.setSubject(subject);
+        helper.setText(content);
+    }
+
+    /**
+     * Builds the HTML content for the password reset email.
+     *
+     * @param email the recipient's email address
+     * @param code  the password reset code
+     * @return the HTML email content
+     */
+    private String buildEmailContent(String email, String code) {
+        return "<!DOCTYPE html>" +
+                "<html><head><style>" +
+                "body { font-family: Arial, sans-serif; color: #333; }" +
+                ".container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }" +
+                ".header { text-align: center; }" +
+                ".code { font-size: 24px; font-weight: bold; color: #007bff; text-align: center; margin: 20px 0; }" +
+                ".footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; }" +
+                "</style></head>" +
+                "<body>" +
+                "<div class='container'>" +
+                "<div class='header'>" +
+                "<h2>Reset Your " + appName + " Password</h2>" +
+                "</div>" +
+                "<p>Dear user,</p>" +
+                "<p>You have requested to reset your password. Please use the following code to proceed:</p>" +
+                "<div class='code'>" + code + "</div>" +
+                "<p>This code will expire in " + resetCodeExpiryMinutes + " minutes.</p>" +
+                "<p>If you did not request a password reset, please ignore this email or contact support.</p>" +
+                "<div class='footer'>" +
+                "<p>&copy; " + LocalDateTime.now().getYear() + " " + appName + ". All rights reserved.</p>" +
+                "</div>" +
+                "</div>" +
+                "</body></html>";
     }
 }

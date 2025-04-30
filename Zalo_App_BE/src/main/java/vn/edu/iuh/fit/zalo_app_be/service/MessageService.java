@@ -20,10 +20,16 @@ import java.util.List;
 
 public interface MessageService {
     void saveMessage(MessageRequest request);
+
     String uploadFile(MultipartFile files, MessageRequest request);
+
     List<MessageResponse> getChatHistory(String userId, String userOtherId);
+
     List<MessageResponse> getGroupChatHistory(String userId, String groupId);
+
     void recallMessage(String messageId, String userId);
+
     void deleteMessage(String messageId, String userId);
+
     void forwardMessage(String messageId, String userId, String receiverId);
 }

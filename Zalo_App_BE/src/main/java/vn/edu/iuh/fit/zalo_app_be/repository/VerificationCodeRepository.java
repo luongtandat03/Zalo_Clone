@@ -8,7 +8,7 @@ package vn.edu.iuh.fit.zalo_app_be.repository;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
-import vn.edu.iuh.fit.zalo_app_be.model.PasswordResetToken;
+import vn.edu.iuh.fit.zalo_app_be.model.VerificationCode;
 
 /*
  * @author: Luong Tan Dat
@@ -16,8 +16,8 @@ import vn.edu.iuh.fit.zalo_app_be.model.PasswordResetToken;
  */
 
 @Repository
-public interface PasswordResetTokenRepository extends MongoRepository<PasswordResetToken, String> {
-    PasswordResetToken findByEmail(String email);
+public interface VerificationCodeRepository extends MongoRepository<VerificationCode, String> {
+    VerificationCode findByEmail(String email);
 
-    PasswordResetToken findByCode(String code);
+    VerificationCode findByCode(String code);
 }

@@ -19,8 +19,8 @@ import java.time.LocalDateTime;
 
 @Getter
 @Setter
-@Document(collection = "password_reset_tokens")
-public class PasswordResetToken {
+@Document(collection = "verification_codes")
+public class VerificationCode {
     @Id
     private String id;
     private String code;
@@ -28,7 +28,7 @@ public class PasswordResetToken {
     private LocalDateTime expiryDate;
     private boolean used;
 
-    public PasswordResetToken(String code, String email, LocalDateTime expiryDate) {
+    public VerificationCode(String code, String email, LocalDateTime expiryDate) {
         this.code = code;
         this.email = email;
         this.expiryDate = expiryDate;
