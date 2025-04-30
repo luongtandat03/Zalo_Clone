@@ -355,7 +355,7 @@ public class UserServiceImpl implements UserService {
         passwordResetTokenRepository.save(resetToken);
 
         try {
-            emailService.sendPasswordResetEmail(email, code);
+            emailService.sendVerificationEmail(email, code);
         } catch (Exception e) {
             log.error("Error while sending password reset email: {}", e.getMessage());
             passwordResetTokenRepository.delete(resetToken);

@@ -54,7 +54,7 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendVerificationEmail(String email, String code) {
         String subject = "Verify Your Email";
-        String content = buildEmailContent(email, code);
+        String content = buildEmailContentForVerificationEmail(email, code);
 
         try{
             MimeMessage message = javaMailSender.createMimeMessage();
@@ -106,5 +106,39 @@ public class EmailServiceImpl implements EmailService {
                 "</div>" +
                 "</div>" +
                 "</body></html>";
+    }
+
+   /**
+     * Builds the HTML content for the email verification email.
+     *
+     * @param email the recipient's email address
+     * @param code  the verification code
+     * @return the HTML email content
+     */
+    private String buildEmailContentForVerificationEmail(String email, String code) {
+        return "<!DOCTYPE html>" +
+               "<html><head><style>" +
+               "body { font-family: Arial, sans-serif; color: #333; }" +
+               ".container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }" +
+               ".header { text-align: center; }" +
+               ".code { font-size: 24px; font-weight: bold; color: #007bff; text-align: center; margin: 20px 0; }" +
+               ".footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; }" +
+               "</style></head>" +
+               "<body>" +
+               "<div class='container'>" +
+               "<div class='header'>" +
+               "<h2>Welcome to " + appName + "</h2>" +
+               "</div>" +
+               "<p>Dear user,</p>" +
+               "<p>Thank you for registering with " + appName + ". To complete your registration, please use the following verification code:</p>" +
+               "<div class='code'>" + code + "</div>" +
+               "<p>This code will expire in " + resetCodeExpiryMinutes + " minutes.</p>" +
+               "<p>If you did not attempt to register, please ignore this email or contact our support team.</p>" +
+               "<p><a href='mailto:support@" + appName.toLowerCase().replace(" ", "") + ".com'>Contact Support</a></p>" +
+               "<div class='footer'>" +
+               "<p>© " + LocalDateTime.now().getYear() + " " + appName + ". All rights reserved.</p>" +
+               "</div>" +
+               "</div>" +
+               "</body></html>";
     }
 }
