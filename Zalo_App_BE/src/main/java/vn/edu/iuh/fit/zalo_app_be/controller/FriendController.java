@@ -18,7 +18,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.FriendResponse;
 import vn.edu.iuh.fit.zalo_app_be.model.Friend;
-import vn.edu.iuh.fit.zalo_app_be.model.User;
 import vn.edu.iuh.fit.zalo_app_be.service.FriendService;
 
 import java.util.List;
@@ -93,4 +92,11 @@ public class FriendController {
         return ResponseEntity.ok(Map.of("message", "User unblocked"));
     }
 
+    @GetMapping("/{friendId}")
+    @Operation(summary = "Get friend by ID", description = "Retrieve a friend's details by their ID")
+    public ResponseEntity<FriendResponse> getFriendById(@PathVariable String friendId) {
+        log.info("Fetching friend with ID {}", friendId);
+        FriendResponse friend = friendService.getFriendById(friendId);
+        return ResponseEntity.ok(friend);
+    }
 }

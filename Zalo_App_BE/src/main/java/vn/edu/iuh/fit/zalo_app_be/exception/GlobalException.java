@@ -274,5 +274,40 @@ public class GlobalException {
         return errorResponse;
     }
 
-
+/**
+     * Handle exception when send message failed
+     *
+     * @param e
+     * @param req
+     * @return
+     */
+    @ExceptionHandler(MessageSendException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    @ApiResponses(
+            @ApiResponse(responseCode = "412", description = "CLIENT ERROR",
+                    content = {@Content(mediaType = APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(
+                                    name = "412 CLIENT ERROR",
+                                    summary = "Handle Exception when send message failed",
+                                    value = """
+                                            {
+                                                "timestamp": "2025-03-29T09:00:00.000+00:00",
+                                                "status": 412,
+                                                "path": "/api/v1/...",
+                                                "error": "Send Message Failed",
+                                                "message": "Send Message Failed"
+                                            }
+                                            """
+                            )
+                    )})
+    )
+    public ErrorResponse handleSendMessage(MessageSendException e, WebRequest req) {
+        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.setTimestamp(new Date());
+        errorResponse.setPath(req.getDescription(false).replace("uri=", ""));
+        errorResponse.setStatus(HttpStatus.CONFLICT.value());
+        errorResponse.setError(HttpStatus.CONFLICT.getReasonPhrase());
+        errorResponse.setMessage(e.getMessage());
+        return errorResponse;
+    }
 }

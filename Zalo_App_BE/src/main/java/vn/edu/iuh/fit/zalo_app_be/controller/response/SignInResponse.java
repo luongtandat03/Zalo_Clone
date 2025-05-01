@@ -13,6 +13,7 @@ package vn.edu.iuh.fit.zalo_app_be.controller.response;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import vn.edu.iuh.fit.zalo_app_be.common.UserActiveStatus;
 
 import java.util.Date;
 
@@ -24,4 +25,5 @@ public class SignInResponse {
     private String username;
     private String accessToken;
     private String refreshToken;
+    private UserActiveStatus activeStatus;
 }

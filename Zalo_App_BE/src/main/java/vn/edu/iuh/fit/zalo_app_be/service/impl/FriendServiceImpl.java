@@ -63,19 +63,34 @@ public class FriendServiceImpl implements FriendService {
         List<User> friends = userRepository.getAllByFriends(friendIds);
         log.info("Found {} friends for user {}", friends.size(), userId);
 
-        List<String> retrievedFriendIds = friends.stream()
-                .map(User::getId)
-                .toList();
-
+        // Map the friends to FriendResponse
         List<FriendResponse> friendResponses = friends.stream()
                 .map(friend -> FriendResponse.builder()
                         .id(friend.getId())
                         .name(friend.getFirstName() + " " + friend.getLastName())
                         .avatar(friend.getAvatar())
+                        .activeStatus(friend.getActiveStatus())
                         .build())
                 .toList();
         log.info("Returning {} friends for user {}", friendResponses.size(), userId);
         return friendResponses;
+    }
+
+    @Override
+    public FriendResponse getFriendById(String friendId) {
+        Optional<User> user = userRepository.findById(friendId);
+        // Check if the friend is not found
+        if(user.isEmpty()) {
+            log.error("Friend not found with id: {}", friendId);
+            throw new ResourceNotFoundException("Friend not found with id: " + friendId);
+        }
+
+        return FriendResponse.builder()
+                .id(user.get().getId())
+                .name(user.get().getFirstName() + " " + user.get().getLastName())
+                .avatar(user.get().getAvatar())
+                .activeStatus(user.get().getActiveStatus())
+                .build();
     }
 
     @Override

@@ -21,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import vn.edu.iuh.fit.zalo_app_be.common.UserActiveStatus;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.SignInRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.SignInResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.InvalidDataException;
@@ -65,6 +66,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .refreshToken(refreshToken)
                     .userId(user.getId())
                     .username(user.getUsername())
+                    .activeStatus(UserActiveStatus.ONLINE)
                     .build();
 
         } catch (BadCredentialsException e) {
@@ -99,6 +101,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .refreshToken(refreshToken)
                     .userId(user.getId())
                     .username(user.getUsername())
+                    .activeStatus(UserActiveStatus.ONLINE)
                     .build();
         } catch (Exception e) {
             log.error("Refresh token failed, message: {} ", e.getMessage());

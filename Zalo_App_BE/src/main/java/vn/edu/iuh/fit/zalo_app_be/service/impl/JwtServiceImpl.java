@@ -26,6 +26,7 @@ import vn.edu.iuh.fit.zalo_app_be.exception.BlackListException;
 import vn.edu.iuh.fit.zalo_app_be.exception.InvalidDataException;
 import vn.edu.iuh.fit.zalo_app_be.model.BlacklistedToken;
 import vn.edu.iuh.fit.zalo_app_be.repository.BlacklistedTokenRepository;
+import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.JwtService;
 
 import java.security.Key;

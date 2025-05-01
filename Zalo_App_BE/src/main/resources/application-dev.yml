@@ -10,7 +10,6 @@ spring:
       database: zalo-app
   jackson:
     time-zone: Asia/Ho_Chi_Minh
-
   mail:
     host: smtp.gmail.com
     port: 587
@@ -62,3 +61,8 @@ cloudinary:
 
 avatar:
   default: https://i.ibb.co/mrL8wYRs/default.jpg
+
+security:
+   whiteListUrls:
+     - /auth/**
+     - /ws/**

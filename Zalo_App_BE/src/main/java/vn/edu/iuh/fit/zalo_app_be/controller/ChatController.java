@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
@@ -30,6 +31,7 @@ public class ChatController {
     private final MessageService messageService;
 
     @MessageMapping("/chat.send")
+    @SendTo("/topic/messages")
     public void sendMessage(@Payload MessageRequest request) {
         log.debug("Processing chat request: sender={}, receiver={}",
                 request.getSenderId(), request.getReceiverId());

@@ -23,6 +23,8 @@ public interface FriendService {
 
     List<FriendResponse> getAllFriends();
 
+    FriendResponse getFriendById(String friendId);
+
     void sendFriendRequest(String receiverId);
 
     void acceptFriendRequest(String requestId);

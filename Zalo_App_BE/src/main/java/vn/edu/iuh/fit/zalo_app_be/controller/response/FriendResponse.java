@@ -14,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import vn.edu.iuh.fit.zalo_app_be.common.UserActiveStatus;
 
 @Getter
 @Setter
@@ -23,4 +24,5 @@ public class FriendResponse {
     private String id;
     private String name;
     private String avatar;
+    private UserActiveStatus activeStatus;
 }

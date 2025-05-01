@@ -14,6 +14,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import vn.edu.iuh.fit.zalo_app_be.common.Gender;
+import vn.edu.iuh.fit.zalo_app_be.common.UserActiveStatus;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 
 import java.util.Date;
@@ -33,6 +34,7 @@ public class RegisterResponse {
     private String avatar;
     private String username;
     private String password;
+    private UserActiveStatus activeStatus;
     private String accessToken;
     private String refreshToken;
 }

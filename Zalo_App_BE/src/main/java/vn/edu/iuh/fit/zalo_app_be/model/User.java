@@ -19,6 +19,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import vn.edu.iuh.fit.zalo_app_be.common.Gender;
+import vn.edu.iuh.fit.zalo_app_be.common.UserActiveStatus;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 
 import java.io.Serializable;
@@ -59,6 +60,8 @@ public class User implements UserDetails, Serializable {
     private List<String> friends = new ArrayList<>();
 
     private List<String> blocks = new ArrayList<>();
+
+    private UserActiveStatus activeStatus;
 
     @CreatedDate
     private LocalDateTime createdAt;

@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import vn.edu.iuh.fit.zalo_app_be.common.TokenType;
+import vn.edu.iuh.fit.zalo_app_be.common.UserActiveStatus;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserRegisterRequest;
@@ -247,6 +248,10 @@ public class UserServiceImpl implements UserService {
         }
 
         jwtService.blackListToken(token, TokenType.ACCESS_TOKEN);
+        user.setActiveStatus(UserActiveStatus.OFFLINE);
+        userRepository.save(user);
+        log.info("User {} logged out successfully", user.getUsername());
+
         log.info("Token blacklisted successfully for user: {}", username);
         return LogoutResponse.builder().message("Logout successfully").build();
     }
@@ -411,6 +416,7 @@ public class UserServiceImpl implements UserService {
                 .lastName(user.getLastName())
                 .birthday(user.getBirthday())
                 .gender(user.getGender())
+                .activeStatus(UserActiveStatus.OFFLINE)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken).build();
     }
