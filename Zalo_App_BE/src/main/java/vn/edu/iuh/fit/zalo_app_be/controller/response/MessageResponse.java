@@ -36,6 +36,7 @@ public class MessageResponse {
     private String fileName;
     private String replyToMessageId;
     private String thumbnail;
+    private String publicId;
     private boolean recalled;
     private List<String> deletedByUsers;
     private MessageStatus status;

@@ -17,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageStatus;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
@@ -33,8 +32,6 @@ import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -98,7 +95,7 @@ public class MessageServiceImpl implements MessageService {
         }
 
         try {
-            String originalFileName = file.getOriginalFilename();
+            String originalFileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "unnamed_file";
             String contentType = file.getContentType();
             String resourceType;
             MessageType type;
@@ -122,19 +119,22 @@ public class MessageServiceImpl implements MessageService {
                 type = MessageType.FILE;
             }
 
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", resourceType, "folder", "chat_files"));
-            String url = (String) uploadResult.get("secure_url");
-            String thumbnail = (type == MessageType.VIDEO || type == MessageType.AUDIO) ? (String) uploadResult.get("thumbnail") : null;
+            String sanitizedFileName = originalFileName.replaceAll("[^a-zA-Z0-9.-]", "_");
 
-            assert originalFileName != null;
-            String downloadUrl = url + "?filename=" + URLEncoder.encode(originalFileName, StandardCharsets.UTF_8);
+            String publicId = "chatFiles/" + sanitizedFileName;
+
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", resourceType, "folder", "chat_files", "public_id", publicId));
+            String url = (String) uploadResult.get("secure_url");
+            String cloudinaryPublicId = (String) uploadResult.get("public_id");
+            String thumbnail = (type == MessageType.VIDEO || type == MessageType.AUDIO) ? (String) uploadResult.get("thumbnail") : null;
 
             Message message = new Message();
             message.setSenderId(request.getSenderId());
             message.setReceiverId(request.getReceiverId());
             message.setType(type);
-            message.setContent(downloadUrl);
+            message.setContent(originalFileName);
             message.setThumbnail(thumbnail);
+            message.setPublicId(cloudinaryPublicId);
             message.setFileName(originalFileName);
             message.setReplyToMessageId(request.getReplyToMessageId());
             message.setStatus(MessageStatus.SENT);
@@ -144,13 +144,14 @@ public class MessageServiceImpl implements MessageService {
 
 
             messageRepository.save(message);
-            log.info("File uploaded: {} with origin name: {} for sender: {}", downloadUrl, originalFileName, request.getSenderId());
+            log.info("File uploaded: {} with origin name: {} for sender: {}", originalFileName, originalFileName, request.getSenderId());
 
             return Map.of(
-                    "url", downloadUrl,
+                    "url", originalFileName,
                     "type", type.toString(),
                     "thumbnail", thumbnail != null ? thumbnail : "",
-                    "fileName", originalFileName
+                    "fileName", originalFileName,
+                    "publicId", cloudinaryPublicId != null ? cloudinaryPublicId : ""
             );
 
         } catch (Exception e) {
@@ -278,6 +279,7 @@ public class MessageServiceImpl implements MessageService {
                 message.getFileName(),
                 message.getReplyToMessageId(),
                 message.getThumbnail(),
+                message.getPublicId(),
                 message.isRecalled(),
                 message.getDeleteBy() != null ? new ArrayList<>(message.getDeleteBy().keySet()) : null,
                 message.getStatus(),

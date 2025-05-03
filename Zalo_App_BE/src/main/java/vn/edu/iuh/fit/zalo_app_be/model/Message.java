@@ -46,6 +46,7 @@ public class Message {
     private MessageReference forwardedFrom; // For forwarded message {messageId, originalSenderId}
     private String fileName; // original name of file
     private String thumbnail; // thumbnail of video
+    private String publicId;
     @CreatedDate
     @Indexed
     private LocalDateTime createdAt;
