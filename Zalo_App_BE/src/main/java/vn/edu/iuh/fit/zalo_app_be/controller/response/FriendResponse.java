@@ -14,7 +14,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import vn.edu.iuh.fit.zalo_app_be.common.Gender;
 import vn.edu.iuh.fit.zalo_app_be.common.UserActiveStatus;
+
+import java.util.Date;
 
 @Getter
 @Setter
@@ -24,5 +27,8 @@ public class FriendResponse {
     private String id;
     private String name;
     private String avatar;
+    private String phone;
+    private Date birthday;
+    private Gender gender;
     private UserActiveStatus activeStatus;
 }

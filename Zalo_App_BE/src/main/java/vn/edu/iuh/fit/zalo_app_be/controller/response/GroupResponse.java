@@ -29,6 +29,7 @@ public class GroupResponse {
     private String createId;
     private List<String> memberIds;
     private Map<String, Roles> roles; // userId -> role (admin, member)
+    private String avatarGroup;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
     private boolean isActive;

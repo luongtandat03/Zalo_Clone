@@ -89,6 +89,9 @@ public class FriendServiceImpl implements FriendService {
                 .id(user.get().getId())
                 .name(user.get().getFirstName() + " " + user.get().getLastName())
                 .avatar(user.get().getAvatar())
+                .phone(user.get().getPhone())
+                .birthday(user.get().getBirthday())
+                .gender(user.get().getGender())
                 .activeStatus(user.get().getActiveStatus())
                 .build();
     }

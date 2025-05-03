@@ -115,24 +115,31 @@ public class MessageServiceImpl implements MessageService {
                     type = MessageType.FILE;
                 }
             } else {
+                log.info("Content type is null : {} , defaulting to raw", originalFileName);
                 resourceType = "raw";
                 type = MessageType.FILE;
             }
 
+            String fileExtension = originalFileName.contains(".") ? originalFileName.substring(originalFileName.lastIndexOf(".")) : "";
             String sanitizedFileName = originalFileName.replaceAll("[^a-zA-Z0-9.-]", "_");
 
-            String publicId = "chatFiles/" + sanitizedFileName;
+            String publicId = "chat_files/" + sanitizedFileName + fileExtension;
 
             Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", resourceType, "folder", "chat_files", "public_id", publicId));
             String url = (String) uploadResult.get("secure_url");
             String cloudinaryPublicId = (String) uploadResult.get("public_id");
             String thumbnail = (type == MessageType.VIDEO || type == MessageType.AUDIO) ? (String) uploadResult.get("thumbnail") : null;
 
+            Map resourceInfo = cloudinary.api().resource(cloudinaryPublicId, ObjectUtils.asMap("resource_type", resourceType));
+            if (resourceInfo == null || !url.equals(resourceInfo.get("secure_url"))) {
+                throw new ResourceNotFoundException("Upload file not found on Cloudinary");
+            }
+
             Message message = new Message();
             message.setSenderId(request.getSenderId());
             message.setReceiverId(request.getReceiverId());
             message.setType(type);
-            message.setContent(originalFileName);
+            message.setContent(url);
             message.setThumbnail(thumbnail);
             message.setPublicId(cloudinaryPublicId);
             message.setFileName(originalFileName);
@@ -147,7 +154,7 @@ public class MessageServiceImpl implements MessageService {
             log.info("File uploaded: {} with origin name: {} for sender: {}", originalFileName, originalFileName, request.getSenderId());
 
             return Map.of(
-                    "url", originalFileName,
+                    "url", url,
                     "type", type.toString(),
                     "thumbnail", thumbnail != null ? thumbnail : "",
                     "fileName", originalFileName,
@@ -196,7 +203,8 @@ public class MessageServiceImpl implements MessageService {
                 throw new ResourceNotFoundException("User not found");
             }
             message.setRecalled(true);
-
+            message.setContentAfterRecallOrDelete(messageOptional.get().getContent());
+            message.setContent(message.getContent());
             messageRepository.save(message);
             log.info("Message recalled: {} for sender: {}", messageId, message.getSenderId());
         } else {
@@ -214,6 +222,8 @@ public class MessageServiceImpl implements MessageService {
         Message message = messageOptional.get();
         Map<String, LocalDateTime> deleteBy = message.getDeleteBy();
         deleteBy.put(userId, LocalDateTime.now());
+        message.setContentAfterRecallOrDelete(messageOptional.get().getContent());
+        message.setContent("Tin nhắn đã bị xóa");
         message.setDeleteBy(deleteBy);
 
         messageRepository.save(message);
@@ -227,17 +237,16 @@ public class MessageServiceImpl implements MessageService {
         if (messageOptional.isEmpty()) {
             throw new ResourceNotFoundException("Message not found");
         }
-        Message messageOriginal = messageOptional.get();
 
         Message message = messageOptional.get();
 
         message.setSenderId(userId);
         message.setReceiverId(receiverId);
-        message.setContent(messageOriginal.getContent());
-        message.setType(messageOriginal.getType());
-        message.setImageUrls(messageOriginal.getImageUrls());
-        message.setVideoInfos(messageOriginal.getVideoInfos());
-        message.setForwardedFrom(new MessageReference(messageId, messageOriginal.getSenderId()));
+        message.setContent(message.getContent());
+        message.setType(message.getType());
+        message.setImageUrls(message.getImageUrls());
+        message.setVideoInfos(message.getVideoInfos());
+        message.setForwardedFrom(new MessageReference(messageId, message.getSenderId()));
         message.setStatus(MessageStatus.SENT);
         message.setCreatedAt(LocalDateTime.now());
         message.setUpdatedAt(LocalDateTime.now());
@@ -268,7 +277,8 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private MessageResponse convertToMessageResponse(Message message) {
+    @Override
+    public MessageResponse convertToMessageResponse(Message message) {
         return new MessageResponse(
                 message.getSenderId(),
                 message.getReceiverId(),

@@ -23,4 +23,5 @@ public class GroupRequest {
     private String name;
     private List<String> memberIds;
     private Map<String, Roles> roles;
+    private String avatarGroup;
 }

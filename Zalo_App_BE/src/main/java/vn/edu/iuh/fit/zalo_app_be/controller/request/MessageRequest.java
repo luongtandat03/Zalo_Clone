@@ -23,6 +23,7 @@ import java.util.Map;
 @Getter
 @NoArgsConstructor
 public class MessageRequest {
+    private String id;
     private String senderId;
     private String receiverId;
     private String content;
@@ -36,10 +37,12 @@ public class MessageRequest {
     private List<String> deletedByUsers;
     private boolean recalled;
 
-    public MessageRequest(String userId, String receiverId, Object o, MessageType messageType) {
-        this.senderId = userId;
+
+    public MessageRequest(String senderId, String receiverId, String content, String groupId, MessageType type) {
+        this.senderId = senderId;
         this.receiverId = receiverId;
-        this.content = o.toString();
-        this.type = messageType;
+        this.content = content;
+        this.groupId = groupId;
+        this.type = type;
     }
 }

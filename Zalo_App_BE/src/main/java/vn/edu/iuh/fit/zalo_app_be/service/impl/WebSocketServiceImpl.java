@@ -16,10 +16,12 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import vn.edu.iuh.fit.zalo_app_be.common.FriendStatus;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.MessageSendException;
 import vn.edu.iuh.fit.zalo_app_be.model.Group;
 import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
-import vn.edu.iuh.fit.zalo_app_be.service.GroupService;
+import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
+import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 
 import java.util.Map;
@@ -31,6 +33,8 @@ import java.util.Optional;
 public class WebSocketServiceImpl implements WebSocketService {
     private final SimpMessagingTemplate template;
     private final GroupRepository groupRepository;
+    private final MessageService messageService;
+    private final MessageRepository messageRepository;
 
     @Override
     public void sendMessage(MessageRequest request) {
@@ -53,7 +57,7 @@ public class WebSocketServiceImpl implements WebSocketService {
             }
             for (String memberId : group.get().getMemberIds()) {
                 if (!memberId.equals(request.getSenderId())) {
-                    template.convertAndSendToUser(memberId, "queue/messages", request);
+                    template.convertAndSendToUser(memberId, "/queue/messages", request);
                     log.info("Group message sent from {} to {}: {}", request.getSenderId(), memberId, request.getContent());
                 }
             }
@@ -78,14 +82,23 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public void notifyRecall(String messageId, String userId) {
-        template.convertAndSendToUser(userId, "/queue/notifications", Map.of("type", "RECALL", "messageId", messageId));
+        MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/recall", messageResponse);
         log.info("Recall notification sent for message {} to user {}", messageId, userId);
     }
 
     @Override
     public void notifyDelete(String messageId, String userId) {
-        template.convertAndSendToUser(userId, "/queue/notifications", Map.of("type", "DELETE", "messageId", messageId));
+        MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/delete", messageResponse);
         log.info("Delete notification sent for message {} to user {}", messageId, userId);
     }
+
+    @Override
+    public void notifyForward(String messageId, String userId, String receiverId) {
+        MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(receiverId, "/queue/forward", messageResponse);
+    }
+
 
 }

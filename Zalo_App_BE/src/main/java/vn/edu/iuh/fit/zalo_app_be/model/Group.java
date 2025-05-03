@@ -37,6 +37,7 @@ public class Group {
     private String createId;
     private List<String> memberIds;
     private Map<String, Roles> roles; // userId : role (admin : member)
+    private String avatarGroup;
     @CreatedDate
     @Indexed
     private LocalDateTime createAt;

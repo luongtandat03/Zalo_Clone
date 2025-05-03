@@ -12,6 +12,7 @@ package vn.edu.iuh.fit.zalo_app_be.service;
  */
 
 
+import org.springframework.web.multipart.MultipartFile;
 import vn.edu.iuh.fit.zalo_app_be.common.Roles;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.GroupRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.GroupResponse;
@@ -32,4 +33,6 @@ public interface GroupService {
     List<GroupResponse> getGroupByUser(String userId);
 
    GroupResponse getUserInGroup(String groupId);
+
+   GroupResponse updateGroup(String groupId, GroupRequest request, MultipartFile file);
 }

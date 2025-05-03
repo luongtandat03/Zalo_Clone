@@ -31,7 +31,6 @@ public class ChatController {
     private final MessageService messageService;
 
     @MessageMapping("/chat.send")
-    @SendTo("/topic/messages")
     public void sendMessage(@Payload MessageRequest request) {
         log.debug("Processing chat request: sender={}, receiver={}",
                 request.getSenderId(), request.getReceiverId());
@@ -58,9 +57,9 @@ public class ChatController {
     }
 
     @MessageMapping("/chat.recall")
-    public void recallMessage(@Payload Map<String, String> request) {
-        String messageId = request.get("messageId");
-        String userId = request.get("userId");
+    public void recallMessage(@Payload MessageRequest request) {
+        String messageId = request.getId();
+        String userId = request.getSenderId();
 
         log.debug("Processing recall message request: messageId={}, userId={}",
                 messageId, userId);
@@ -81,9 +80,9 @@ public class ChatController {
     }
 
     @MessageMapping("/chat.delete")
-    public void deleteMessage(@Payload Map<String, String> request) {
-        String messageId = request.get("messageId");
-        String userId = request.get("userId");
+    public void deleteMessage(@Payload MessageRequest request) {
+        String messageId = request.getId();
+        String userId = request.getSenderId();
 
         log.debug("Processing delete message request: messageId={}, userId={}",
                 messageId, userId);
@@ -104,11 +103,11 @@ public class ChatController {
     }
 
     @MessageMapping("/chat.forward")
-    public void forwardMessage(@Payload Map<String, String> request) {
-        String messageId = request.get("messageId");
-        String userId = request.get("userId");
-        String receiverId = request.get("receiverId");
-        String groupId = request.get("groupId");
+    public void forwardMessage(@Payload MessageRequest request) {
+        String messageId = request.getId();
+        String userId = request.getSenderId();
+        String receiverId = request.getReceiverId();
+        String groupId = request.getGroupId();
 
         log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}",
                 messageId, userId, receiverId);
@@ -118,7 +117,7 @@ public class ChatController {
             }
 
             messageService.forwardMessage(messageId, userId, receiverId);
-            webSocketService.sendMessage(new MessageRequest(userId, receiverId, groupId, MessageType.FORWARD));
+            webSocketService.sendMessage(new MessageRequest(userId, receiverId, request.getContent(), groupId, MessageType.FORWARD));
             log.info("Message forwarded: messageId={}, userId={}, receiverId={}, groupId={}",
                     messageId, userId, receiverId, groupId);
         } catch (Exception e) {

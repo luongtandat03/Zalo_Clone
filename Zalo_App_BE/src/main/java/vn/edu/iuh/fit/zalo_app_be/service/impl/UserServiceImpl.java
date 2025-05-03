@@ -133,7 +133,7 @@ public class UserServiceImpl implements UserService {
         user.setBirthday(request.getBirthday());
 
         if (file != null && !file.isEmpty()) {
-            if (file.getSize() > 5 * 1024 * 1024) {
+            if (file.getSize() > 10 * 1024 * 1024) {
                 log.error("File size exceeds limit");
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File size exceeds limit");
             }
