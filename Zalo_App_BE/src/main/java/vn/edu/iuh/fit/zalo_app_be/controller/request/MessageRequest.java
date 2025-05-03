@@ -31,6 +31,7 @@ public class MessageRequest {
     private List<String> imageUrls;
     private List<Map<String, String>> videoInfos;
     private String replyToMessageId;
+    private String thumbnail;
     private MessageReference forwardedFrom;
     private List<String> deletedByUsers;
     private boolean recalled;

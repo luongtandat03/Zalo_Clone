@@ -44,6 +44,8 @@ public class Message {
     private List<Map<String, String>> videoInfos; // For video {url, thumbnail}
     private Map<String, LocalDateTime> deleteBy; // {userId , time}
     private MessageReference forwardedFrom; // For forwarded message {messageId, originalSenderId}
+    private String fileName; // original name of file
+    private String thumbnail; // thumbnail of video
     @CreatedDate
     @Indexed
     private LocalDateTime createdAt;

@@ -47,30 +47,16 @@ public class MessageController {
 
     @GetMapping("/chat-history/{userId}")
     public ResponseEntity<List<MessageResponse>> getChatHistory(@PathVariable String userId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUser = userRepository.findByUsername(authentication.getName()).getId();
-
-        if (currentUser == null) {
-            return ResponseEntity.status(401).build();
-        }
-
-        return ResponseEntity.ok(messageService.getChatHistory(userId, currentUser));
+        return ResponseEntity.ok(messageService.getChatHistory(userId));
     }
 
     @GetMapping("/chat-history/group/{groupId}")
     public ResponseEntity<List<MessageResponse>> getGroupChatHistory(@PathVariable String groupId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUser = userRepository.findByUsername(authentication.getName()).getId();
-
-        if (currentUser == null) {
-            return ResponseEntity.status(401).build();
-        }
-
-        return ResponseEntity.ok(messageService.getGroupChatHistory(groupId, currentUser));
+        return ResponseEntity.ok(messageService.getGroupChatHistory(groupId));
     }
 
     @PostMapping("/upload-file")
-    public ResponseEntity<List<String>> uploadFile(
+    public ResponseEntity<List<Map<String, String>>> uploadFile(
             @RequestParam("file") List<MultipartFile> files,
             @RequestParam(value = "receiverId", required = false) String receiverId,
             @RequestParam(value = "groupId", required = false) String groupId,
@@ -83,17 +69,19 @@ public class MessageController {
             return ResponseEntity.status(401).build();
         }
 
-        List<String> fileUrls = new ArrayList<>();
+        log.debug("Uploading files: senderId={}, groupId={}, receiverId={}", senderId, groupId, receiverId);
+
+        List<Map<String, String>> fileResults = new ArrayList<>();
         for (MultipartFile file : files) {
             MessageRequest request = new MessageRequest();
             request.setSenderId(senderId);
             request.setReceiverId(receiverId);
             request.setGroupId(groupId);
             request.setReplyToMessageId(replyToMessageId);
-            fileUrls.add(messageService.uploadFile(file, request));
+            fileResults.add(messageService.uploadFile(file, request));
         }
-        log.info("Uploaded files: {}", fileUrls);
-        return new ResponseEntity<>(fileUrls, HttpStatus.OK);
+        log.info("Uploaded files: {}", fileResults);
+        return new ResponseEntity<>(fileResults, HttpStatus.OK);
     }
 
 }

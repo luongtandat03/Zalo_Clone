@@ -14,6 +14,8 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,6 +33,8 @@ import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -46,13 +50,17 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public void saveMessage(MessageRequest request) {
-        validateUser(request.getSenderId(), request.getReceiverId());
+        if (request.getGroupId() == null) {
+            validateUser(request.getSenderId(), request.getReceiverId());
+        } else {
+            validateGroup(request.getGroupId(), request.getSenderId());
+        }
         log.info("Sending message from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
         try {
-
             Message message = new Message();
             message.setSenderId(request.getSenderId());
             message.setReceiverId(request.getReceiverId());
+            message.setGroupId(request.getGroupId());
             message.setContent(request.getContent());
             message.setType(request.getType() != null ? request.getType() : MessageType.TEXT);
             message.setImageUrls(request.getImageUrls());
@@ -60,6 +68,7 @@ public class MessageServiceImpl implements MessageService {
             message.setReplyToMessageId(request.getReplyToMessageId());
             message.setForwardedFrom(request.getForwardedFrom() != null ? new MessageReference(
                     request.getForwardedFrom().getMessageId(), request.getForwardedFrom().getOriginalSenderId()) : null);
+            message.setThumbnail(request.getThumbnail());
             message.setStatus(MessageStatus.SENT);
             message.setCreatedAt(LocalDateTime.now());
             message.setUpdatedAt(LocalDateTime.now());
@@ -73,66 +82,90 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public String uploadFile(MultipartFile file, MessageRequest request) {
-        validateUser(request.getSenderId(), request.getReceiverId());
+    public Map<String, String> uploadFile(MultipartFile file, MessageRequest request) {
+        if (request.getGroupId() == null) {
+            validateUser(request.getSenderId(), request.getReceiverId());
+        } else {
+            validateGroup(request.getGroupId(), request.getSenderId());
+        }
         if (file == null || file.isEmpty()) {
             throw new ResourceNotFoundException("File not found");
         }
 
-        if (file.getSize() > 10 * 1024 * 1024) // 10MB
+        if (file.getSize() > 50 * 1024 * 1024) // 50MB
         {
             throw new ResourceNotFoundException("File size exceeds limit");
         }
 
         try {
+            String originalFileName = file.getOriginalFilename();
             String contentType = file.getContentType();
+            String resourceType;
             MessageType type;
+
             if (contentType != null) {
                 if (contentType.startsWith("image/")) {
+                    resourceType = "image";
                     type = MessageType.IMAGE;
-                }
-                if (contentType.startsWith("video/")) {
+                } else if (contentType.startsWith("video/")) {
+                    resourceType = "video";
                     type = MessageType.VIDEO;
+                } else if (contentType.startsWith("audio/")) {
+                    resourceType = "audio";
+                    type = MessageType.AUDIO;
                 } else {
+                    resourceType = "raw";
                     type = MessageType.FILE;
                 }
             } else {
+                resourceType = "raw";
                 type = MessageType.FILE;
             }
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "auto", "folder", "chat_files"));
+
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", resourceType, "folder", "chat_files"));
             String url = (String) uploadResult.get("secure_url");
-            String thumbnail = type == MessageType.VIDEO ? (String) uploadResult.get("thumbnail") : null;
+            String thumbnail = (type == MessageType.VIDEO || type == MessageType.AUDIO) ? (String) uploadResult.get("thumbnail") : null;
+
+            assert originalFileName != null;
+            String downloadUrl = url + "?filename=" + URLEncoder.encode(originalFileName, StandardCharsets.UTF_8);
 
             Message message = new Message();
             message.setSenderId(request.getSenderId());
             message.setReceiverId(request.getReceiverId());
             message.setType(type);
-            if (MessageType.IMAGE == type) {
-                message.setImageUrls(Collections.singletonList(url));
-            } else if (type == MessageType.VIDEO) {
-                message.setVideoInfos(Collections.singletonList(Map.of("url", url, "thumbnail", thumbnail != null ? thumbnail : url)));
-            } else {
-                message.setContent(url);
-            }
+            message.setContent(downloadUrl);
+            message.setThumbnail(thumbnail);
+            message.setFileName(originalFileName);
             message.setReplyToMessageId(request.getReplyToMessageId());
             message.setStatus(MessageStatus.SENT);
             message.setCreatedAt(LocalDateTime.now());
             message.setUpdatedAt(LocalDateTime.now());
             message.setRead(false);
 
-            messageRepository.save(message);
-            log.info("File uploaded: {} for sender: {}", url, request.getSenderId());
 
-            return url;
+            messageRepository.save(message);
+            log.info("File uploaded: {} with origin name: {} for sender: {}", downloadUrl, originalFileName, request.getSenderId());
+
+            return Map.of(
+                    "url", downloadUrl,
+                    "type", type.toString(),
+                    "thumbnail", thumbnail != null ? thumbnail : "",
+                    "fileName", originalFileName
+            );
+
         } catch (Exception e) {
             log.info("Error uploading file: {}", e.getMessage());
             throw new RuntimeException("Error uploading file: " + e.getMessage());
         }
     }
 
+
     @Override
-    public List<MessageResponse> getChatHistory(String userId, String userOtherId) {
-        return messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(userId, userOtherId, userId, userOtherId)
+    public List<MessageResponse> getChatHistory(String userOtherId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUser = userRepository.findByUsername(authentication.getName()).getId();
+
+        return messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(currentUser, userOtherId, currentUser, userOtherId)
                 .stream()
                 .map(this::convertToMessageResponse)
                 .sorted(Comparator.comparing(MessageResponse::getCreateAt))
@@ -140,11 +173,11 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public List<MessageResponse> getGroupChatHistory(String userId, String groupId) {
-        Optional<Group> group = groupRepository.findById(groupId);
-        if (group.isEmpty()) {
-            throw new ResourceNotFoundException("Group not found");
-        }
+    public List<MessageResponse> getGroupChatHistory(String groupId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUser = userRepository.findByUsername(authentication.getName()).getId();
+
+        validateGroup(groupId, currentUser);
 
         return messageRepository.findByGroupId(groupId)
                 .stream()
@@ -224,6 +257,16 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
+    private void validateGroup(String groupId, String senderId) {
+        Optional<Group> group = groupRepository.findById(groupId);
+        if (group.isEmpty()) {
+            throw new ResourceNotFoundException("Group not found");
+        }
+        if (!group.get().getMemberIds().contains(senderId)) {
+            throw new ResourceNotFoundException("User not in group");
+        }
+    }
+
     private MessageResponse convertToMessageResponse(Message message) {
         return new MessageResponse(
                 message.getSenderId(),
@@ -232,7 +275,9 @@ public class MessageServiceImpl implements MessageService {
                 message.getType(),
                 message.getImageUrls(),
                 message.getVideoInfos(),
+                message.getFileName(),
                 message.getReplyToMessageId(),
+                message.getThumbnail(),
                 message.isRecalled(),
                 message.getDeleteBy() != null ? new ArrayList<>(message.getDeleteBy().keySet()) : null,
                 message.getStatus(),

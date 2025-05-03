@@ -33,7 +33,9 @@ public class MessageResponse {
     private MessageType type;
     private List<String> imageUrls;
     private List<Map<String, String>> videoInfos;
+    private String fileName;
     private String replyToMessageId;
+    private String thumbnail;
     private boolean recalled;
     private List<String> deletedByUsers;
     private MessageStatus status;
