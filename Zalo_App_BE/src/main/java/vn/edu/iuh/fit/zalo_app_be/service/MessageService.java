@@ -14,11 +14,27 @@ package vn.edu.iuh.fit.zalo_app_be.service;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
+import vn.edu.iuh.fit.zalo_app_be.model.Message;
 
 import java.util.List;
+import java.util.Map;
 
 public interface MessageService {
-    void sendMessage(MessageRequest request);
-    String uploadFile(MultipartFile file, MessageRequest request);
-    List<MessageResponse> getChatHistory(String userId, String userOtherId);
+    MessageResponse saveMessage(MessageRequest request);
+
+    Map<String,String> uploadFile(MultipartFile files, MessageRequest request);
+
+    List<MessageResponse> getChatHistory(String userOtherId);
+
+    List<MessageResponse> getGroupChatHistory(String groupId);
+
+    void recallMessage(String messageId, String userId);
+
+    void deleteMessage(String messageId, String userId);
+
+    void forwardMessage(String messageId, String userId, String receiverId);
+
+    String findMessageIdByTempId(String tempId);
+
+    MessageResponse convertToMessageResponse(Message message);
 }

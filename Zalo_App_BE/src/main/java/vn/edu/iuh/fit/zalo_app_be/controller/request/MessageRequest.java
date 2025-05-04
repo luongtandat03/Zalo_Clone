@@ -10,28 +10,39 @@ package vn.edu.iuh.fit.zalo_app_be.controller.request;
  * @date: 4/17/2025
  */
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
+import vn.edu.iuh.fit.zalo_app_be.model.MessageReference;
 
-import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
-@Getter
 @Setter
-@AllArgsConstructor
+@Getter
+@NoArgsConstructor
 public class MessageRequest {
+    private String id;
     private String senderId;
     private String receiverId;
     private String content;
+    private String groupId;
     private MessageType type;
-    private LocalDateTime createAt;
-    private LocalDateTime updateAt;
+    private List<String> imageUrls;
+    private List<Map<String, String>> videoInfos;
+    private String replyToMessageId;
+    private String thumbnail;
+    private MessageReference forwardedFrom;
+    private List<String> deletedByUsers;
+    private boolean recalled;
+    private String tempId; // Thêm trường tempId
 
-    public MessageRequest(String receiverId, String senderId, LocalDateTime updateAt, LocalDateTime createAt) {
-        this.receiverId = receiverId;
+    public MessageRequest(String senderId, String receiverId, String content, String groupId, MessageType type) {
         this.senderId = senderId;
-        this.updateAt = updateAt;
-        this.createAt = createAt;
+        this.receiverId = receiverId;
+        this.content = content;
+        this.groupId = groupId;
+        this.type = type;
     }
 }

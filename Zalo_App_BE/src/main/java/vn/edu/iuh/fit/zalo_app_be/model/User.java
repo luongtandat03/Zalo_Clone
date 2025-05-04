@@ -19,13 +19,12 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import vn.edu.iuh.fit.zalo_app_be.common.Gender;
+import vn.edu.iuh.fit.zalo_app_be.common.UserActiveStatus;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
+import java.util.*;
 
 @Getter
 @Setter
@@ -57,6 +56,12 @@ public class User implements UserDetails, Serializable {
     private String username;
 
     private String password;
+
+    private List<String> friends = new ArrayList<>();
+
+    private List<String> blocks = new ArrayList<>();
+
+    private UserActiveStatus activeStatus;
 
     @CreatedDate
     private LocalDateTime createdAt;

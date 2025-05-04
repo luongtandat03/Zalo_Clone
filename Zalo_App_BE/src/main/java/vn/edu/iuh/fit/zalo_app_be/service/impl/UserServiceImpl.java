@@ -14,6 +14,7 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,24 +25,28 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import vn.edu.iuh.fit.zalo_app_be.common.TokenType;
+import vn.edu.iuh.fit.zalo_app_be.common.UserActiveStatus;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserRegisterRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserUpdateRequest;
+import vn.edu.iuh.fit.zalo_app_be.controller.request.VerifyEmailRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.*;
 import vn.edu.iuh.fit.zalo_app_be.exception.DulicatedUserException;
 import vn.edu.iuh.fit.zalo_app_be.exception.InvalidDataException;
 import vn.edu.iuh.fit.zalo_app_be.exception.UnauthorizedException;
-import vn.edu.iuh.fit.zalo_app_be.model.PasswordResetToken;
+import vn.edu.iuh.fit.zalo_app_be.model.VerificationCode;
 import vn.edu.iuh.fit.zalo_app_be.model.User;
-import vn.edu.iuh.fit.zalo_app_be.repository.PasswordResetTokenRepository;
+import vn.edu.iuh.fit.zalo_app_be.repository.VerificationCodeRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.EmailService;
 import vn.edu.iuh.fit.zalo_app_be.service.JwtService;
 import vn.edu.iuh.fit.zalo_app_be.service.UserService;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j(topic = "USER-SERVICE")
@@ -51,9 +56,15 @@ public class UserServiceImpl implements UserService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
-    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final VerificationCodeRepository passwordResetTokenRepository;
     private final Cloudinary cloudinary;
     private final RandomCodeGenerator randomCodeGenerator;
+
+    @Value("${avatar.default}")
+    private String avatarDefault;
+
+    @Value("${spring.mail.reset-code-expiry-minutes}")
+    private int resetCodeExpiryMinutes;
 
     @Override
     public RegisterResponse register(UserRegisterRequest request) {
@@ -62,14 +73,37 @@ public class UserServiceImpl implements UserService {
             throw new DulicatedUserException("User already exists");
         }
 
-        user = User.builder().username(request.getUsername()).password(passwordEncoder.encode(request.getPassword())).email(request.getEmail()).phone(request.getPhone()).avatar(request.getAvatar()).status(UserStatus.ACTIVE).build();
+        user = User.builder()
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .email(request.getEmail())
+                .phone(request.getPhone())
+                .avatar(avatarDefault)
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .birthday(request.getBirthday())
+                .gender(request.getGender())
+                .status(UserStatus.ACTIVE)
+                .build();
 
         user = userRepository.save(user);
 
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername());
         String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername());
 
-        return RegisterResponse.builder().userId(user.getId()).username(user.getUsername()).email(user.getEmail()).phone(user.getPhone()).avatar(user.getAvatar()).status(UserStatus.ACTIVE).accessToken(accessToken).refreshToken(refreshToken).build();
+        return RegisterResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .avatar(user.getAvatar())
+                .status(UserStatus.ACTIVE)
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .birthday(user.getBirthday())
+                .gender(user.getGender())
+                .accessToken(accessToken)
+                .refreshToken(refreshToken).build();
     }
 
     @Override
@@ -99,7 +133,7 @@ public class UserServiceImpl implements UserService {
         user.setBirthday(request.getBirthday());
 
         if (file != null && !file.isEmpty()) {
-            if (file.getSize() > 5 * 1024 * 1024) {
+            if (file.getSize() > 10 * 1024 * 1024) {
                 log.error("File size exceeds limit");
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File size exceeds limit");
             }
@@ -177,7 +211,20 @@ public class UserServiceImpl implements UserService {
 
         User user = (User) authentication.getPrincipal();
 
-        return UserResponse.builder().id(user.getId()).username(user.getUsername()).firstName(user.getFirstName()).lastName(user.getLastName()).birthday(user.getBirthday()).email(user.getEmail()).phone(user.getPhone()).gender(user.getGender()).status(user.getStatus()).avatar(user.getAvatar()).createdAt(user.getCreatedAt()).updateAt(user.getUpdateAt()).build();
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .birthday(user.getBirthday())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .gender(user.getGender())
+                .status(user.getStatus())
+                .avatar(user.getAvatar())
+                .createdAt(user.getCreatedAt())
+                .updateAt(user.getUpdateAt())
+                .build();
     }
 
     @Override
@@ -201,6 +248,10 @@ public class UserServiceImpl implements UserService {
         }
 
         jwtService.blackListToken(token, TokenType.ACCESS_TOKEN);
+        user.setActiveStatus(UserActiveStatus.OFFLINE);
+        userRepository.save(user);
+        log.info("User {} logged out successfully", user.getUsername());
+
         log.info("Token blacklisted successfully for user: {}", username);
         return LogoutResponse.builder().message("Logout successfully").build();
     }
@@ -214,14 +265,14 @@ public class UserServiceImpl implements UserService {
             log.error("User not found with email: {}", email);
             throw new InvalidDataException("User not found");
         }
-        PasswordResetToken tokenReset = passwordResetTokenRepository.findByEmail(user.getEmail());
+        VerificationCode tokenReset = passwordResetTokenRepository.findByEmail(user.getEmail());
         if (tokenReset != null) {
             passwordResetTokenRepository.delete(tokenReset);
         }
 
         String code = randomCodeGenerator.generateCode();
         LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(10);
-        PasswordResetToken resetToken = new PasswordResetToken(code, email, expiryDate);
+        VerificationCode resetToken = new VerificationCode(code, email, expiryDate);
         passwordResetTokenRepository.save(resetToken);
 
         try {
@@ -242,7 +293,7 @@ public class UserServiceImpl implements UserService {
             throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Invalid reset token");
         }
 
-        PasswordResetToken resetToken = passwordResetTokenRepository.findByCode(code);
+        VerificationCode resetToken = passwordResetTokenRepository.findByCode(code);
 
         if (resetToken == null) {
             log.error("Reset token is null or empty");
@@ -273,5 +324,112 @@ public class UserServiceImpl implements UserService {
         passwordResetTokenRepository.save(resetToken);
 
         log.info("Password reset successfully for user: {}", user.getUsername());
+    }
+
+    @Override
+    public List<UserResponse> findUsersByIds(List<String> ids) {
+        List<User> users = userRepository.findAllById(ids);
+        return users.stream()
+                .map(user -> new UserResponse(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getFirstName(),
+                        user.getLastName(),
+                        user.getBirthday(),
+                        user.getEmail(),
+                        user.getPhone(),
+                        user.getGender(),
+                        user.getStatus(),
+                        user.getAvatar(),
+                        user.getCreatedAt(),
+                        user.getUpdateAt()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void sendVerificationEmail(String email) {
+        VerificationCode tokenReset = passwordResetTokenRepository.findByEmail(email);
+        if (tokenReset != null) {
+            passwordResetTokenRepository.delete(tokenReset);
+        }
+
+        String code = randomCodeGenerator.generateCode();
+        LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(10);
+        VerificationCode resetToken = new VerificationCode(code, email, expiryDate);
+        passwordResetTokenRepository.save(resetToken);
+
+        try {
+            emailService.sendVerificationEmail(email, code);
+        } catch (Exception e) {
+            log.error("Error while sending password reset email: {}", e.getMessage());
+            passwordResetTokenRepository.delete(resetToken);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error while sending password reset email");
+        }
+
+    }
+
+    @Override
+    public RegisterResponse verifyEmail(VerifyEmailRequest request) {
+        log.info("Verification Email with code: {}", request.getCode());
+
+        if (request.getCode() == null || request.getCode().trim().isEmpty()) {
+            log.error("Code is null");
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Invalid Code");
+        }
+
+        VerificationCode codeVerification = passwordResetTokenRepository.findByCode(request.getCode());
+
+        validateCode(codeVerification);
+
+        User user = userRepository.findByUsername(request.getUserRegisterRequest().getUsername());
+        if (user != null) {
+            throw new DulicatedUserException("User already exists");
+        }
+
+        user = User.builder()
+                .username(request.getUserRegisterRequest().getUsername())
+                .password(passwordEncoder.encode(request.getUserRegisterRequest().getPassword()))
+                .email(request.getUserRegisterRequest().getEmail())
+                .phone(request.getUserRegisterRequest().getPhone())
+                .avatar(avatarDefault)
+                .firstName(request.getUserRegisterRequest().getFirstName())
+                .lastName(request.getUserRegisterRequest().getLastName())
+                .birthday(request.getUserRegisterRequest().getBirthday())
+                .gender(request.getUserRegisterRequest().getGender())
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        user = userRepository.save(user);
+
+        String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername());
+        String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername());
+
+        return RegisterResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .avatar(user.getAvatar())
+                .status(UserStatus.ACTIVE)
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .birthday(user.getBirthday())
+                .gender(user.getGender())
+                .activeStatus(UserActiveStatus.OFFLINE)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken).build();
+    }
+
+    private void validateCode(VerificationCode code) {
+        if (code.isUsed()) {
+            log.error("Code already used: {}", code);
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Code already used");
+        }
+
+        if (code.getExpiryDate().isBefore(LocalDateTime.now())) {
+            log.error("Code expired: {}", code);
+            throw new UnauthorizedException(HttpStatus.UNAUTHORIZED, "Code expired");
+        }
     }
 }

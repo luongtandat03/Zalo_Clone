@@ -17,3 +17,6 @@ logging:
   level:
     root: INFO
     web: INFO
+    vn.edu.iuh.fit.zalo_app_be: DEBUG
+    org.springframework.messaging: DEBUG
+    org.springframework.web.socket: DEBUG
