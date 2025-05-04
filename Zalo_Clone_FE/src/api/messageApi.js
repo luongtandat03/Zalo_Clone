@@ -7,9 +7,6 @@ const SOCKJS_URL = '/ws';
 
 let stompClient = null;
 
-// Hàm tạo tempId
-const generateTempId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
 // Hàm lấy lịch sử tin nhắn
 export const getChatHistory = async (userId, token) => {
   try {
@@ -193,7 +190,7 @@ export function recallMessage(identifier, userId, token) {
   }
 
   try {
-    const message = { id: identifier, senderId: userId, tempId: identifier };
+    const message = { id: identifier, senderId: userId };
     stompClient.publish({
       destination: '/app/chat.recall',
       body: JSON.stringify(message),
@@ -215,7 +212,7 @@ export function deleteMessage(identifier, userId, token) {
   }
 
   try {
-    const message = { id: identifier, senderId: userId, tempId: identifier };
+    const message = { id: identifier, senderId: userId };
     stompClient.publish({
       destination: '/app/chat.delete',
       body: JSON.stringify(message),
@@ -243,8 +240,7 @@ export function forwardMessage(identifier, userId, receiverId, groupId, content,
       receiverId,
       groupId,
       content,
-      type: 'FORWARD',
-      tempId: identifier
+      type: 'FORWARD'
     };
     stompClient.publish({
       destination: '/app/chat.forward',
@@ -269,5 +265,3 @@ export function disconnectWebSocket() {
   }
   stompClient = null;
 }
-
-export { generateTempId };

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText } from '@mui/material';
 import { BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare } from 'react-icons/bi';
-import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, generateTempId } from '../../api/messageApi';
+import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage } from '../../api/messageApi';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -37,7 +37,15 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    setLocalMessages(messages);
+    // Đồng bộ localMessages với messages từ Home.jsx
+    // Loại bỏ tin nhắn trùng lặp dựa trên id
+    const uniqueMessages = messages.reduce((acc, msg) => {
+      if (!acc.some(item => item.id === msg.id)) {
+        acc.push(msg);
+      }
+      return acc;
+    }, []);
+    setLocalMessages(uniqueMessages);
   }, [messages]);
 
   const handleSendMessage = () => {
@@ -49,13 +57,13 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
 
-    const tempId = generateTempId();
+    const tempKey = `${Date.now()}-${messageInput}`; // Định danh tạm thời
     const message = {
       senderId: userId,
       receiverId: selectedContact?.id,
       content: messageInput,
       type: 'TEXT',
-      tempId: tempId,
+      tempKey: tempKey, // Sử dụng tempKey để xác định tin nhắn tạm thời
     };
 
     try {
@@ -69,7 +77,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           deletedByUsers: [],
           isRead: false,
         };
-        setLocalMessages((prev) => [...prev, newMessage]);
+        // Không thêm trực tiếp vào localMessages, chỉ gửi lên Home.jsx để xử lý
         onMessageInputChange({ target: { value: '' } });
         onSendMessage(newMessage);
         toast.success('Tin nhắn đã được gửi!');
@@ -107,19 +115,19 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           type = 'FILE';
         }
 
-        const tempId = generateTempId();
+        const tempKey = `${Date.now()}-${url}`; // Định danh tạm thời
         const message = {
           senderId: userId,
           receiverId: selectedContact?.id,
           content: url,
           type: type,
-          tempId: tempId,
+          tempKey: tempKey,
           createAt: new Date().toISOString(),
           recalled: false,
           deletedByUsers: [],
           isRead: false,
         };
-        setLocalMessages((prev) => [...prev, message]);
+        // Không thêm trực tiếp vào localMessages, chỉ gửi lên Home.jsx
         onSendMessage(message);
       });
       toast.success('File đã được gửi!');
@@ -140,22 +148,21 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
     try {
-      const identifier = message.id || message.tempId;
+      const identifier = message.id;
       if (!identifier) {
-        throw new Error('Missing message identifier');
+        throw new Error('Missing message identifier.');
       }
       const success = recallMessage(identifier, userId, token);
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
-            (msg.id && msg.id === message.id) || (msg.tempId === message.tempId)
+            msg.id === message.id
               ? { ...msg, recalled: true }
               : msg
           )
         );
         onSendMessage({ 
-          id: message.id, 
-          tempId: message.tempId,
+          id: message.id,
           recalled: true 
         });
         toast.success('Tin nhắn đã được thu hồi!');
@@ -178,9 +185,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
     try {
-      const identifier = message.id || message.tempId;
+      const identifier = message.id;
       if (!identifier) {
-        throw new Error('Missing message identifier');
+        throw new Error('Missing message identifier.');
       }
       const success = deleteMessage(identifier, userId, token);
       if (success) {
@@ -192,14 +199,13 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
         setLocalMessages((prev) =>
           prev.map((msg) =>
-            (msg.id && msg.id === message.id) || (msg.tempId === message.tempId)
+            msg.id === message.id
               ? { ...msg, deletedByUsers: [...(msg.deletedByUsers || []), userId] }
               : msg
           )
         );
         onSendMessage({ 
-          id: message.id, 
-          tempId: message.tempId,
+          id: message.id,
           deletedByUsers: [...(message.deletedByUsers || []), userId] 
         });
         toast.success('Tin nhắn đã được xóa!');
@@ -227,9 +233,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
     try {
-      const identifier = forwardMessage.id || forwardMessage.tempId;
+      const identifier = forwardMessage.id;
       if (!identifier) {
-        throw new Error('Missing message identifier');
+        throw new Error('Missing message identifier.');
       }
       const success = forwardMessage(
         identifier,
@@ -240,20 +246,20 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         token
       );
       if (success) {
-        const tempId = generateTempId();
+        const tempKey = `${Date.now()}-${forwardMessage.content}`; // Định danh tạm thời
         const newMessage = {
           senderId: userId,
           receiverId: contact.id,
           content: forwardMessage.content,
           type: 'FORWARD',
           forwardedFrom: { messageId: forwardMessage.id, senderId: userId },
-          tempId: tempId,
+          tempKey: tempKey,
           createAt: new Date().toISOString(),
           recalled: false,
           deletedByUsers: [],
           isRead: false,
         };
-        setLocalMessages((prev) => [...prev, newMessage]);
+        // Không thêm trực tiếp vào localMessages, chỉ gửi lên Home.jsx
         onSendMessage(newMessage);
         toast.success('Tin nhắn đã được chuyển tiếp!');
       } else {
@@ -306,7 +312,10 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
       <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: 'background.default' }}>
         {localMessages.map((message, index) => (
-          <MessageContainer key={message.id || message.tempId || (message.createAt + message.senderId + index)} isSender={message.senderId === userId}>
+          <MessageContainer 
+            key={message.id ? `${message.id}-${index}` : (message.tempKey ? `${message.tempKey}-${index}` : `${message.createAt}-${message.senderId}-${index}`)} 
+            isSender={message.senderId === userId}
+          >
             {message.senderId === userId && !message.recalled && !(message.deletedByUsers?.includes(userId)) && (
               <Box display="flex" flexDirection="column" mr={1}>
                 <IconButton size="small" onClick={() => handleRecallMessage(message)} disabled={isSending}>
@@ -323,7 +332,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             <MessageBubble isSender={message.senderId === userId}>
               {message.recalled ? (
                 <Typography fontStyle="italic">Tin nhắn đã được thu hồi</Typography>
-              ) : message.deletedByUsers?.includes(userId) ? (
+              ) : (message.deletedByUsers?.includes(message.senderId) || message.deletedByUsers?.includes(message.receiverId)) ? (
                 <Typography fontStyle="italic">Tin nhắn đã bị xóa</Typography>
               ) : message.type === 'TEXT' ? (
                 <Typography>{message.content}</Typography>

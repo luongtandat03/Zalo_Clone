@@ -37,24 +37,17 @@ public class ChatController {
                 throw new RuntimeException("Invalid message request: missing senderId or receiverId");
             }
 
-            MessageResponse messageResponse = messageService.saveMessage(request); // Lấy MessageResponse chứa id
-            MessageRequest responseRequest = new MessageRequest(
-                    request.getSenderId(),
-                    request.getReceiverId(),
-                    request.getContent(),
-                    request.getGroupId(),
-                    request.getType() != null ? request.getType() : MessageType.TEXT
-            );
-            responseRequest.setId(messageResponse.getId()); // Cập nhật id thực tế
-            responseRequest.setRecalled(messageResponse.isRecalled());
-            responseRequest.setDeletedByUsers(messageResponse.getDeletedByUsers());
+            MessageResponse response = messageService.saveMessage(request);
+            request.setId(response.getId());
+            request.setRecalled(response.isRecalled());
+            request.setDeletedByUsers(response.getDeletedByUsers());
 
             if (request.getGroupId() != null) {
-                webSocketService.sendGroupMessage(responseRequest);
+                webSocketService.sendGroupMessage(request);
                 log.info("Group message sent from {} to group {}: {}",
                         request.getSenderId(), request.getGroupId(), request.getContent());
             } else {
-                webSocketService.sendMessage(responseRequest);
+                webSocketService.sendMessage(request);
                 log.info("Message sent from {} to {}: {}",
                         request.getSenderId(), request.getReceiverId(), request.getContent());
             }
@@ -121,12 +114,17 @@ public class ChatController {
         log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}",
                 messageId, userId, receiverId);
         try {
-            if (messageId == null || userId == null || receiverId == null) {
-                throw new RuntimeException("Invalid forward message request: missing messageId, userId or receiverId");
+            if (messageId == null || userId == null || (receiverId == null && groupId == null)) {
+                throw new RuntimeException("Invalid forward message request: missing messageId, userId, receiverId, or groupId");
             }
 
             messageService.forwardMessage(messageId, userId, receiverId);
-            webSocketService.sendMessage(new MessageRequest(userId, receiverId, request.getContent(), groupId, MessageType.FORWARD));
+            MessageRequest forwardRequest = new MessageRequest(userId, receiverId, request.getContent(), groupId, MessageType.FORWARD);
+            if (groupId != null) {
+                webSocketService.sendGroupMessage(forwardRequest);
+            } else {
+                webSocketService.sendMessage(forwardRequest);
+            }
             log.info("Message forwarded: messageId={}, userId={}, receiverId={}, groupId={}",
                     messageId, userId, receiverId, groupId);
         } catch (Exception e) {
