@@ -29,7 +29,8 @@ import java.util.Map;
 public class MessageResponse {
     private String id;
     private String senderId;
-    private String recipientId;
+    private String receiverId;
+    private String groupId;
     private String content;
     private MessageType type;
     private List<String> imageUrls;

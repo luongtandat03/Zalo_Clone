@@ -32,6 +32,7 @@ import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -46,7 +47,7 @@ public class MessageServiceImpl implements MessageService {
     private final Cloudinary cloudinary;
 
     @Override
-    public void saveMessage(MessageRequest request) {
+    public MessageResponse saveMessage(MessageRequest request) {
         if (request.getGroupId() == null) {
             validateUser(request.getSenderId(), request.getReceiverId());
         } else {
@@ -59,7 +60,13 @@ public class MessageServiceImpl implements MessageService {
             message.setReceiverId(request.getReceiverId());
             message.setGroupId(request.getGroupId());
             message.setContent(request.getContent());
-            message.setType(request.getType() != null ? request.getType() : MessageType.TEXT);
+            MessageType type = request.getType() != null ? request.getType() : MessageType.TEXT;
+            if (type == MessageType.GIF || type == MessageType.STICKER) {
+                if (!isValidUrl(request.getContent())) {
+                    throw new ResourceNotFoundException("URL is not valid");
+                }
+            }
+            message.setType(type);
             message.setImageUrls(request.getImageUrls());
             message.setVideoInfos(request.getVideoInfos());
             message.setReplyToMessageId(request.getReplyToMessageId());
@@ -71,8 +78,10 @@ public class MessageServiceImpl implements MessageService {
             message.setUpdatedAt(LocalDateTime.now());
             message.setRead(false);
 
-            messageRepository.save(message);
+            Message newMessage = messageRepository.save(message);
             log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
+
+            return convertToMessageResponse(newMessage);
         } catch (Exception e) {
             throw new RuntimeException("Error saving message: " + e.getMessage());
         }
@@ -277,12 +286,22 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
+    private boolean isValidUrl(String url) {
+        try {
+            new URL(url).toURI();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @Override
     public MessageResponse convertToMessageResponse(Message message) {
         return new MessageResponse(
                 message.getId(),
                 message.getSenderId(),
                 message.getReceiverId(),
+                message.getGroupId(),
                 message.getContent(),
                 message.getType(),
                 message.getImageUrls(),

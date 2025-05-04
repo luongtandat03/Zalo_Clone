@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface MessageService {
-    void saveMessage(MessageRequest request);
+    MessageResponse saveMessage(MessageRequest request);
 
     Map<String,String> uploadFile(MultipartFile files, MessageRequest request);
 

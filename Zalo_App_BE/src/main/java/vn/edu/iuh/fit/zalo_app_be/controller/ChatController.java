@@ -18,6 +18,7 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 
@@ -39,7 +40,17 @@ public class ChatController {
                 throw new RuntimeException("Invalid message request: missing senderId or receiverId");
             }
 
-            messageService.saveMessage(request);
+            MessageResponse response = messageService.saveMessage(request);
+
+            request.setId(response.getId());
+            request.setRecalled(response.isRecalled());
+            request.setDeletedByUsers(response.getDeletedByUsers());
+            request.setSenderId(request.getSenderId());
+            request.setReceiverId(request.getReceiverId());
+            request.setGroupId(request.getGroupId());
+            request.setContent(request.getContent());
+            request.setType(request.getType() != null ? request.getType() : MessageType.TEXT);
+
             if (request.getGroupId() != null) {
                 webSocketService.sendGroupMessage(request);
                 log.info("Group message sent from {} to group {}: {}",
@@ -49,11 +60,13 @@ public class ChatController {
                 log.info("Message sent from {} to {}: {}",
                         request.getSenderId(), request.getReceiverId(), request.getContent());
             }
+
         } catch (Exception e) {
             log.error("Error processing message: sender={}, receiver={}, error={}",
                     request.getSenderId(), request.getReceiverId(), e.getMessage());
             throw e;
         }
+
     }
 
     @MessageMapping("/chat.recall")

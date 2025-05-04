@@ -39,7 +39,9 @@ public class WebSocketServiceImpl implements WebSocketService {
     @Override
     public void sendMessage(MessageRequest request) {
         try {
+            template.convertAndSendToUser(request.getSenderId(), "/queue/messages", request);
             template.convertAndSendToUser(request.getReceiverId(), "/queue/messages", request);
+
             log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
         } catch (Exception e) {
             log.error("Error sending message: {}", e.getMessage());
@@ -84,6 +86,9 @@ public class WebSocketServiceImpl implements WebSocketService {
     public void notifyRecall(String messageId, String userId) {
         MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
         template.convertAndSendToUser(userId, "/queue/recall", messageResponse);
+        if(!userId.equals(messageResponse.getReceiverId())){
+            template.convertAndSendToUser(messageResponse.getReceiverId(), "/queue/recall", messageResponse);
+        }
         log.info("Recall notification sent for message {} to user {}", messageId, userId);
     }
 
