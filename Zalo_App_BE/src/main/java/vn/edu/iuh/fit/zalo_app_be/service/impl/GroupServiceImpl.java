@@ -233,6 +233,7 @@ public class GroupServiceImpl implements GroupService {
 
     private GroupResponse convertToGroupResponse(Group group) {
         return GroupResponse.builder()
+                .id(group.getId())
                 .name(group.getName())
                 .createId(group.getCreateId())
                 .memberIds(group.getMemberIds())

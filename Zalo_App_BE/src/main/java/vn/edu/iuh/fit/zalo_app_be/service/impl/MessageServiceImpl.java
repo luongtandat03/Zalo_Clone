@@ -280,6 +280,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public MessageResponse convertToMessageResponse(Message message) {
         return new MessageResponse(
+                message.getId(),
                 message.getSenderId(),
                 message.getReceiverId(),
                 message.getContent(),

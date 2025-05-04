@@ -27,6 +27,7 @@ import java.util.Map;
 @Builder
 @AllArgsConstructor
 public class MessageResponse {
+    private String id;
     private String senderId;
     private String recipientId;
     private String content;
