@@ -1,4 +1,14 @@
+/*
+ * @ (#) ChatController.java       1.0     4/20/2025
+ *
+ * Copyright (c) 2025. All rights reserved.
+ */
+
 package vn.edu.iuh.fit.zalo_app_be.controller;
+/*
+ * @author: Luong Tan Dat
+ * @date: 4/20/2025
+ */
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,34 +30,37 @@ public class ChatController {
 
     @MessageMapping("/chat.send")
     public void sendMessage(@Payload MessageRequest request) {
-        String senderId = request.getSenderId();
-        String receiverId = request.getReceiverId();
-        String content = request.getContent();
-        String groupId = request.getGroupId();
-        String tempId = request.getTempId();
-
-        log.debug("Processing send message request: senderId={}, receiverId={}, groupId={}", senderId, receiverId, groupId);
+        log.debug("Processing chat request: sender={}, receiver={}",
+                request.getSenderId(), request.getReceiverId());
         try {
-            if (senderId == null || receiverId == null) {
+            if (request.getSenderId() == null || request.getReceiverId() == null) {
                 throw new RuntimeException("Invalid message request: missing senderId or receiverId");
             }
 
-            MessageResponse messageResponse = messageService.saveMessage(request);
-            MessageRequest responseRequest = new MessageRequest(senderId, receiverId, content, groupId, MessageType.TEXT);
-            responseRequest.setId(messageResponse.getId());
-            responseRequest.setTempId(tempId);
+            MessageResponse messageResponse = messageService.saveMessage(request); // Lấy MessageResponse chứa id
+            MessageRequest responseRequest = new MessageRequest(
+                    request.getSenderId(),
+                    request.getReceiverId(),
+                    request.getContent(),
+                    request.getGroupId(),
+                    request.getType() != null ? request.getType() : MessageType.TEXT
+            );
+            responseRequest.setId(messageResponse.getId()); // Cập nhật id thực tế
             responseRequest.setRecalled(messageResponse.isRecalled());
             responseRequest.setDeletedByUsers(messageResponse.getDeletedByUsers());
 
-            if (groupId != null) {
+            if (request.getGroupId() != null) {
                 webSocketService.sendGroupMessage(responseRequest);
-                log.info("Group message sent from {} to group {}: {}", senderId, groupId, content);
+                log.info("Group message sent from {} to group {}: {}",
+                        request.getSenderId(), request.getGroupId(), request.getContent());
             } else {
                 webSocketService.sendMessage(responseRequest);
-                log.info("Message sent from {} to {}: {}", senderId, receiverId, content);
+                log.info("Message sent from {} to {}: {}",
+                        request.getSenderId(), request.getReceiverId(), request.getContent());
             }
         } catch (Exception e) {
-            log.error("Error processing message: sender={}, receiver={}, error={}", senderId, receiverId, e.getMessage());
+            log.error("Error processing message: sender={}, receiver={}, error={}",
+                    request.getSenderId(), request.getReceiverId(), e.getMessage());
             throw e;
         }
     }
@@ -56,24 +69,21 @@ public class ChatController {
     public void recallMessage(@Payload MessageRequest request) {
         String messageId = request.getId();
         String userId = request.getSenderId();
-        String tempId = request.getTempId();
 
-        log.debug("Processing recall message request: messageId={}, userId={}", messageId, userId);
+        log.debug("Processing recall message request: messageId={}, userId={}",
+                messageId, userId);
         try {
-            if (messageId == null && tempId == null) {
-                throw new RuntimeException("Invalid recall message request: missing messageId or tempId");
+            if (messageId == null || userId == null) {
+                throw new RuntimeException("Invalid recall message request: missing messageId or userId");
             }
 
-            String resolvedMessageId = messageId;
-            if (messageId == null) {
-                resolvedMessageId = messageService.findMessageIdByTempId(tempId);
-            }
-
-            messageService.recallMessage(resolvedMessageId, userId);
-            webSocketService.notifyRecall(resolvedMessageId, userId);
-            log.info("Message recalled: messageId={}, userId={}", resolvedMessageId, userId);
+            messageService.recallMessage(messageId, userId);
+            webSocketService.notifyRecall(messageId, userId);
+            log.info("Message recalled: messageId={}, userId={}",
+                    messageId, userId);
         } catch (Exception e) {
-            log.error("Error processing recall message: messageId={}, userId={}, error={}", messageId, userId, e.getMessage());
+            log.error("Error processing recall message: messageId={}, userId={}, error={}",
+                    messageId, userId, e.getMessage());
             throw e;
         }
     }
@@ -82,24 +92,21 @@ public class ChatController {
     public void deleteMessage(@Payload MessageRequest request) {
         String messageId = request.getId();
         String userId = request.getSenderId();
-        String tempId = request.getTempId();
 
-        log.debug("Processing delete message request: messageId={}, userId={}", messageId, userId);
+        log.debug("Processing delete message request: messageId={}, userId={}",
+                messageId, userId);
         try {
-            if (messageId == null && tempId == null) {
-                throw new RuntimeException("Invalid delete message request: missing messageId or tempId");
+            if (messageId == null || userId == null) {
+                throw new RuntimeException("Invalid delete message request: missing messageId or userId");
             }
 
-            String resolvedMessageId = messageId;
-            if (messageId == null) {
-                resolvedMessageId = messageService.findMessageIdByTempId(tempId);
-            }
-
-            messageService.deleteMessage(resolvedMessageId, userId);
-            webSocketService.notifyDelete(resolvedMessageId, userId);
-            log.info("Message deleted: messageId={}, userId={}", resolvedMessageId, userId);
+            messageService.deleteMessage(messageId, userId);
+            webSocketService.notifyDelete(messageId, userId);
+            log.info("Message deleted: messageId={}, userId={}",
+                    messageId, userId);
         } catch (Exception e) {
-            log.error("Error processing delete message: messageId={}, userId={}, error={}", messageId, userId, e.getMessage());
+            log.error("Error processing delete message: messageId={}, userId={}, error={}",
+                    messageId, userId, e.getMessage());
             throw e;
         }
     }
@@ -110,27 +117,21 @@ public class ChatController {
         String userId = request.getSenderId();
         String receiverId = request.getReceiverId();
         String groupId = request.getGroupId();
-        String tempId = request.getTempId();
 
-        log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}", messageId, userId, receiverId);
+        log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}",
+                messageId, userId, receiverId);
         try {
-            if (messageId == null && tempId == null) {
-                throw new RuntimeException("Invalid forward message request: missing messageId or tempId");
-            }
-            if (userId == null || receiverId == null) {
-                throw new RuntimeException("Invalid forward message request: missing userId or receiverId");
+            if (messageId == null || userId == null || receiverId == null) {
+                throw new RuntimeException("Invalid forward message request: missing messageId, userId or receiverId");
             }
 
-            String resolvedMessageId = messageId;
-            if (messageId == null) {
-                resolvedMessageId = messageService.findMessageIdByTempId(tempId);
-            }
-
-            messageService.forwardMessage(resolvedMessageId, userId, receiverId);
+            messageService.forwardMessage(messageId, userId, receiverId);
             webSocketService.sendMessage(new MessageRequest(userId, receiverId, request.getContent(), groupId, MessageType.FORWARD));
-            log.info("Message forwarded: messageId={}, userId={}, receiverId={}, groupId={}", resolvedMessageId, userId, receiverId, groupId);
+            log.info("Message forwarded: messageId={}, userId={}, receiverId={}, groupId={}",
+                    messageId, userId, receiverId, groupId);
         } catch (Exception e) {
-            log.error("Error processing forward message: messageId={}, userId={}, receiverId={}, error={}", messageId, userId, receiverId, e.getMessage());
+            log.error("Error processing forward message: messageId={}, userId={}, receiverId={}, error={}",
+                    messageId, userId, receiverId, e.getMessage());
             throw e;
         }
     }

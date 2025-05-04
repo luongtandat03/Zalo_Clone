@@ -1,4 +1,14 @@
+/*
+ * @ (#) Message.java       1.0     4/16/2025
+ *
+ * Copyright (c) 2025. All rights reserved.
+ */
+
 package vn.edu.iuh.fit.zalo_app_be.model;
+/*
+ * @author: Luong Tan Dat
+ * @date: 4/16/2025
+ */
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -31,13 +41,13 @@ public class Message {
     private MessageType type;
     private boolean recalled = false;
     private List<String> imageUrls;
-    private List<Map<String, String>> videoInfos;
-    private Map<String, LocalDateTime> deleteBy;
-    private MessageReference forwardedFrom;
-    private String fileName;
-    private String thumbnail;
-    private String publicId;
-    private String contentAfterRecallOrDelete;
+    private List<Map<String, String>> videoInfos; // For video {url, thumbnail}
+    private Map<String, LocalDateTime> deleteBy; // {userId , time}
+    private MessageReference forwardedFrom; // For forwarded message {messageId, originalSenderId}
+    private String fileName; // original name of file
+    private String thumbnail; // thumbnail of video
+    private String publicId; // public id of file in cloudinary
+    private String contentAfterRecallOrDelete; // content after recall or delete
     @CreatedDate
     @Indexed
     private LocalDateTime createdAt;
@@ -46,5 +56,6 @@ public class Message {
     private MessageStatus status = MessageStatus.SENT;
     private boolean isRead = false;
     private String replyToMessageId;
-    private String tempId; // Thêm trường tempId
+
 }
+

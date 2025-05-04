@@ -36,7 +36,7 @@ public class MessageRequest {
     private MessageReference forwardedFrom;
     private List<String> deletedByUsers;
     private boolean recalled;
-    private String tempId; // Thêm trường tempId
+
 
     public MessageRequest(String senderId, String receiverId, String content, String groupId, MessageType type) {
         this.senderId = senderId;

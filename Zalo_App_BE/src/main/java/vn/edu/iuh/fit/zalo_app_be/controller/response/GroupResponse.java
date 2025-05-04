@@ -25,6 +25,7 @@ import java.util.Map;
 @Builder
 @AllArgsConstructor
 public class GroupResponse {
+    private String id;
     private String name;
     private String createId;
     private List<String> memberIds;

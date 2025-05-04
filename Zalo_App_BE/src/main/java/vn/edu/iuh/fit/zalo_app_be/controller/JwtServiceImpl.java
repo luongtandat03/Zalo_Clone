@@ -4,7 +4,7 @@
  * Copyright (c) 2025. All rights reserved.
  */
 
-package vn.edu.iuh.fit.zalo_app_be.service.impl;
+package vn.edu.iuh.fit.zalo_app_be.controller;
 /*
  * @author: Luong Tan Dat
  * @date: 4/9/2025
@@ -26,7 +26,6 @@ import vn.edu.iuh.fit.zalo_app_be.exception.BlackListException;
 import vn.edu.iuh.fit.zalo_app_be.exception.InvalidDataException;
 import vn.edu.iuh.fit.zalo_app_be.model.BlacklistedToken;
 import vn.edu.iuh.fit.zalo_app_be.repository.BlacklistedTokenRepository;
-import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.JwtService;
 
 import java.security.Key;
