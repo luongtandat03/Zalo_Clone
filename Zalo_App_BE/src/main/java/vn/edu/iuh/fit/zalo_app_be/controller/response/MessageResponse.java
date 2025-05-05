@@ -46,4 +46,6 @@ public class MessageResponse {
     private boolean isRead;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
+    private boolean isPinned;
+    private LocalDateTime pinnedAt;
 }

@@ -14,15 +14,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
+import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
-
-import java.util.Map;
 
 @Controller
 @RequiredArgsConstructor
@@ -161,6 +159,54 @@ public class ChatController {
         } catch (Exception e) {
             log.error("Error processing read message: messageId={}, userId={}, error={}",
                     messageId, receiverId, e.getMessage());
+            throw e;
+        }
+    }
+
+    @MessageMapping("/chat.pin")
+    public void pinMessage(@Payload MessageRequest request) {
+        String messageId = request.getId();
+        String userId = request.getSenderId();
+
+        log.debug("Processing pin message request: messageId={}, userId={}",
+                messageId, userId);
+
+        try {
+            if (messageId == null || userId == null) {
+                throw new IllegalArgumentException("Invalid pin message request: missing messageId or userId");
+            }
+
+            messageService.pinMessage(messageId, userId);
+            webSocketService.notifyPin(messageId, userId);
+            log.info("Message pinned: messageId={}, userId={}",
+                    messageId, userId);
+        } catch (Exception e) {
+            log.error("Error processing pin message: messageId={}, userId={}, error={}",
+                    messageId, userId, e.getMessage());
+            throw e;
+        }
+    }
+
+    @MessageMapping("/chat.unpin")
+    public void unpinMessage(@Payload MessageRequest request) {
+        String messageId = request.getId();
+        String userId = request.getSenderId();
+
+        log.debug("Processing unpin message request: messageId={}, userId={}",
+                messageId, userId);
+
+        try {
+            if (messageId == null || userId == null) {
+                throw new IllegalArgumentException("Invalid unpin message request: missing messageId or userId");
+            }
+
+            messageService.unpinMessage(messageId, userId);
+            webSocketService.notifyUnpin(messageId, userId);
+            log.info("Message unpinned: messageId={}, userId={}",
+                    messageId, userId);
+        } catch (Exception e) {
+            log.error("Error processing unpin message: messageId={}, userId={}, error={}",
+                    messageId, userId, e.getMessage());
             throw e;
         }
     }

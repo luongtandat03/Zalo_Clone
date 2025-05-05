@@ -37,4 +37,12 @@ public interface MessageService {
     void readMessage(String messageId, String receiverId);
 
     MessageResponse convertToMessageResponse(Message message);
+
+    void pinMessage(String messageId, String userId);
+
+    void unpinMessage(String messageId, String userId);
+
+    List<MessageResponse> getPinnedMessages(String userId, String groupId);
+
+    List<MessageResponse> searchMessages(String userId, String otherUserId, String groupId, String keyword);
 }

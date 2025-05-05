@@ -26,4 +26,10 @@ public interface WebSocketService {
     void notifyDelete(String messageId, String userId);
 
     void notifyRead(String messageId, String userId);
+
+    void notifyPin(String messageId, String userId);
+
+    void notifyUnpin(String messageId, String userId);
+
+
 }

@@ -20,5 +20,12 @@ import java.util.List;
 @Repository
 public interface MessageRepository extends MongoRepository<Message, String> {
     List<Message> findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(String senderId, String receiverId, String receiverId1, String senderId1);
+
     List<Message> findByGroupId(String groupId);
+
+    List<Message> findByGroupIdAndPinned(String groupId, boolean isPinned);
+
+    List<Message> findBySenderIdAndReceiverIdOrReceiverIdAndSenderIdAndPinned(String userId, String otherUserId, String userId1, String otherUserId1, boolean isPinned);
+
+    List<Message> findByGroupIdAndContentContaining(String groupId, String keyword);
 }

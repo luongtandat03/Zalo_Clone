@@ -14,28 +14,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
-import vn.edu.iuh.fit.zalo_app_be.model.Message;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
-import vn.edu.iuh.fit.zalo_app_be.service.UserService;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 @RestController
 @RequiredArgsConstructor
@@ -84,4 +75,36 @@ public class MessageController {
         return new ResponseEntity<>(fileResults, HttpStatus.OK);
     }
 
+    @GetMapping("/all-pinned-messages")
+    public List<MessageResponse> getPinnedMessages(
+            @RequestParam String otherUserId,
+            @RequestParam(required = false) String groupId
+    ) {
+        log.debug("Getting pinned messages: otherUserId={}, groupId={}", otherUserId, groupId);
+
+        try {
+            return messageService.getPinnedMessages(otherUserId, groupId);
+        } catch (Exception e) {
+            log.error("Error getting pinned messages: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error getting pinned messages");
+        }
+    }
+
+    @GetMapping("/search")
+    public List<MessageResponse> searchMessages(
+            @RequestParam String otherUserId,
+            @RequestParam(required = false) String groupId,
+            @RequestParam String keyword
+    ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = userRepository.findByUsername(authentication.getName()).getId();
+        log.debug("Searching messages: userId={}, otherUserId={}, groupId={}, keyword={}", userId, otherUserId, groupId, keyword);
+
+        try {
+            return messageService.searchMessages(userId, otherUserId, groupId, keyword);
+        } catch (Exception e) {
+            log.error("Error searching messages: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error searching messages");
+        }
+    }
 }

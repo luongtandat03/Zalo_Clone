@@ -19,6 +19,7 @@ import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.MessageSendException;
 import vn.edu.iuh.fit.zalo_app_be.model.Group;
+import vn.edu.iuh.fit.zalo_app_be.model.Message;
 import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
@@ -106,5 +107,24 @@ public class WebSocketServiceImpl implements WebSocketService {
         log.info("Read notification sent for message {} to user {}", messageId, userId);
     }
 
+    @Override
+    public void notifyPin(String messageId, String userId) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/pin", response);
+        if(!userId.equals(response.getReceiverId())){
+            template.convertAndSendToUser(response.getReceiverId(), "/queue/pin", response);
+        }
+        log.info("Pin notification sent for message {} to user {}", messageId, userId);
+    }
+
+    @Override
+    public void notifyUnpin(String messageId, String userId) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/unpin", response);
+        if(!userId.equals(response.getReceiverId())){
+            template.convertAndSendToUser(response.getReceiverId(), "/queue/unpin", response);
+        }
+        log.info("Unpin notification sent for message {} to user {}", messageId, userId);
+    }
 
 }

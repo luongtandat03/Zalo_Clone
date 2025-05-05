@@ -16,6 +16,7 @@ import lombok.Setter;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.model.MessageReference;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -36,7 +37,8 @@ public class MessageRequest {
     private MessageReference forwardedFrom;
     private List<String> deletedByUsers;
     private boolean recalled;
-
+    private boolean isPinned;
+    private LocalDateTime pinnedAt;
 
     public MessageRequest(String senderId, String receiverId, String content, String groupId, MessageType type) {
         this.senderId = senderId;

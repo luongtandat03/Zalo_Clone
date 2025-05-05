@@ -78,6 +78,8 @@ public class MessageServiceImpl implements MessageService {
             message.setCreatedAt(LocalDateTime.now());
             message.setUpdatedAt(LocalDateTime.now());
             message.setRead(false);
+            message.setPinned(request.isPinned());
+            message.setPinnedAt(request.getPinnedAt() != null ? request.getPinnedAt() : LocalDateTime.now());
 
             Message newMessage = messageRepository.save(message);
             log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
@@ -267,9 +269,9 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public void readMessage(String messageId,String receiverId) {
+    public void readMessage(String messageId, String receiverId) {
         Optional<Message> messageOptional = messageRepository.findById(messageId);
-        if( messageOptional.isPresent()) {
+        if (messageOptional.isPresent()) {
             Message message = messageOptional.get();
             if (message.getReceiverId().equals(receiverId)) {
                 message.setRead(true);
@@ -281,6 +283,108 @@ public class MessageServiceImpl implements MessageService {
         } else {
             throw new ResourceNotFoundException("Message not found");
         }
+    }
+
+    @Override
+    public void pinMessage(String messageId, String userId) {
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if (messageOptional.isEmpty()) {
+            throw new ResourceNotFoundException("Message not found");
+        }
+        messageOptional.get().setPinned(true);
+        messageOptional.get().setPinnedAt(LocalDateTime.now());
+
+        messageRepository.save(messageOptional.get());
+
+        log.info("Message pinned: {} for sender: {}", messageId, userId);
+    }
+
+    @Override
+    public void unpinMessage(String messageId, String userId) {
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if (messageOptional.isEmpty()) {
+            throw new ResourceNotFoundException("Message not found");
+        }
+        messageOptional.get().setPinned(false);
+        messageOptional.get().setPinnedAt(null);
+        messageRepository.save(messageOptional.get());
+
+        log.info("Message unpinned: {} for sender: {}", messageId, userId);
+    }
+
+    @Override
+    public List<MessageResponse> getPinnedMessages(String otherUserId, String groupId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = userRepository.findByUsername(authentication.getName()).getId();
+
+        List<Message> pinnedMessages;
+        if (groupId != null) {
+            validateGroup(groupId, userId);
+            pinnedMessages = messageRepository.findByGroupIdAndPinned(groupId, true);
+        } else {
+            validateUser(userId, otherUserId);
+            pinnedMessages = messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderIdAndPinned(userId, otherUserId, userId, otherUserId, true);
+        }
+
+        return pinnedMessages
+                .stream()
+                .map(this::convertToMessageResponse)
+                .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<MessageResponse> searchMessages(String userId, String otherUserId, String groupId, String keyword) {
+        validateUser(userId, otherUserId);
+
+        if (groupId != null) {
+            validateGroup(groupId, userId);
+            return messageRepository.findByGroupIdAndContentContaining(groupId, keyword)
+                    .stream()
+                    .filter(msg ->
+                            (msg.getContent() != null && msg.getContent().contains(keyword))
+                                    || (msg.getFileName() != null && msg.getFileName().contains(keyword)))
+                    .map(this::convertToMessageResponse)
+                    .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
+                    .collect(Collectors.toList());
+        }
+        return messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(userId, otherUserId, userId, otherUserId)
+                .stream()
+                .filter(msg ->
+                        (msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
+                                || (msg.getFileName() != null && msg.getFileName().toLowerCase().contains(keyword.toLowerCase()))
+                )
+                .map(this::convertToMessageResponse)
+                .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public MessageResponse convertToMessageResponse(Message message) {
+        return new MessageResponse(
+                message.getId(),
+                message.getSenderId(),
+                message.getReceiverId(),
+                message.getGroupId(),
+                message.getContent(),
+                message.getType(),
+                message.getImageUrls(),
+                message.getVideoInfos(),
+                message.getFileName(),
+                message.getReplyToMessageId(),
+                message.getThumbnail(),
+                message.getPublicId(),
+                message.isRecalled(),
+                message.getDeleteBy() != null ? new ArrayList<>(message.getDeleteBy().keySet()) : null,
+                message.getStatus(),
+                message.getForwardedFrom() != null ? new MessageReference(
+                        message.getForwardedFrom().getMessageId(), message.getForwardedFrom().getOriginalSenderId()) : null,
+                message.isRead(),
+                message.getCreatedAt(),
+                message.getUpdatedAt(),
+                message.isPinned(),
+                message.getPinnedAt()
+        );
     }
 
     private void validateUser(String senderId, String receiverId) {
@@ -311,32 +415,6 @@ public class MessageServiceImpl implements MessageService {
         } catch (Exception e) {
             return false;
         }
-    }
-
-    @Override
-    public MessageResponse convertToMessageResponse(Message message) {
-        return new MessageResponse(
-                message.getId(),
-                message.getSenderId(),
-                message.getReceiverId(),
-                message.getGroupId(),
-                message.getContent(),
-                message.getType(),
-                message.getImageUrls(),
-                message.getVideoInfos(),
-                message.getFileName(),
-                message.getReplyToMessageId(),
-                message.getThumbnail(),
-                message.getPublicId(),
-                message.isRecalled(),
-                message.getDeleteBy() != null ? new ArrayList<>(message.getDeleteBy().keySet()) : null,
-                message.getStatus(),
-                message.getForwardedFrom() != null ? new MessageReference(
-                        message.getForwardedFrom().getMessageId(), message.getForwardedFrom().getOriginalSenderId()) : null,
-                message.isRead(),
-                message.getCreatedAt(),
-                message.getUpdatedAt()
-        );
     }
 
 }
