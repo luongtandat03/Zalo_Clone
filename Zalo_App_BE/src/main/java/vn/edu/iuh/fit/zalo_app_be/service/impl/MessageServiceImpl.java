@@ -61,11 +61,12 @@ public class MessageServiceImpl implements MessageService {
             message.setGroupId(request.getGroupId());
             message.setContent(request.getContent());
             MessageType type = request.getType() != null ? request.getType() : MessageType.TEXT;
-            if (type == MessageType.GIF || type == MessageType.STICKER) {
+            if (type == MessageType.GIF || type == MessageType.STICKER || type == MessageType.EMOJI) {
                 if (!isValidUrl(request.getContent())) {
                     throw new ResourceNotFoundException("URL is not valid");
                 }
             }
+
             message.setType(type);
             message.setImageUrls(request.getImageUrls());
             message.setVideoInfos(request.getVideoInfos());
@@ -77,6 +78,8 @@ public class MessageServiceImpl implements MessageService {
             message.setCreatedAt(LocalDateTime.now());
             message.setUpdatedAt(LocalDateTime.now());
             message.setRead(false);
+            message.setPinned(request.isPinned());
+            message.setPinnedAt(request.getPinnedAt() != null ? request.getPinnedAt() : LocalDateTime.now());
 
             Message newMessage = messageRepository.save(message);
             log.info("Message sent from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
@@ -158,6 +161,7 @@ public class MessageServiceImpl implements MessageService {
             message.setUpdatedAt(LocalDateTime.now());
             message.setRead(false);
 
+
             messageRepository.save(message);
             log.info("File uploaded: {} with origin name: {} for sender: {}", originalFileName, originalFileName, request.getSenderId());
 
@@ -174,6 +178,7 @@ public class MessageServiceImpl implements MessageService {
             throw new RuntimeException("Error uploading file: " + e.getMessage());
         }
     }
+
 
     @Override
     public List<MessageResponse> getChatHistory(String userOtherId) {
@@ -211,8 +216,7 @@ public class MessageServiceImpl implements MessageService {
             }
             message.setRecalled(true);
             message.setContentAfterRecallOrDelete(messageOptional.get().getContent());
-            message.setContent("Tin nhắn đã được thu hồi");
-            message.setUpdatedAt(LocalDateTime.now());
+            message.setContent(message.getContent());
             messageRepository.save(message);
             log.info("Message recalled: {} for sender: {}", messageId, message.getSenderId());
         } else {
@@ -229,21 +233,10 @@ public class MessageServiceImpl implements MessageService {
 
         Message message = messageOptional.get();
         Map<String, LocalDateTime> deleteBy = message.getDeleteBy();
-        if (deleteBy == null) {
-            deleteBy = new HashMap<>();
-        }
-        // Thêm cả senderId và receiverId vào deleteBy để cả hai bên đều thấy tin nhắn bị xóa
         deleteBy.put(userId, LocalDateTime.now());
-        if (!userId.equals(message.getSenderId())) {
-            deleteBy.put(message.getSenderId(), LocalDateTime.now());
-        }
-        if (!userId.equals(message.getReceiverId())) {
-            deleteBy.put(message.getReceiverId(), LocalDateTime.now());
-        }
         message.setContentAfterRecallOrDelete(messageOptional.get().getContent());
         message.setContent("Tin nhắn đã bị xóa");
         message.setDeleteBy(deleteBy);
-        message.setUpdatedAt(LocalDateTime.now());
 
         messageRepository.save(message);
         log.info("Message deleted: {} for sender: {}", messageId, message.getSenderId());
@@ -259,21 +252,139 @@ public class MessageServiceImpl implements MessageService {
 
         Message message = messageOptional.get();
 
-        Message forwardedMessage = new Message();
-        forwardedMessage.setSenderId(userId);
-        forwardedMessage.setReceiverId(receiverId);
-        forwardedMessage.setContent(message.getContent());
-        forwardedMessage.setType(MessageType.FORWARD);
-        forwardedMessage.setImageUrls(message.getImageUrls());
-        forwardedMessage.setVideoInfos(message.getVideoInfos());
-        forwardedMessage.setForwardedFrom(new MessageReference(messageId, message.getSenderId()));
-        forwardedMessage.setStatus(MessageStatus.SENT);
-        forwardedMessage.setCreatedAt(LocalDateTime.now());
-        forwardedMessage.setUpdatedAt(LocalDateTime.now());
-        forwardedMessage.setRead(false);
+        message.setSenderId(userId);
+        message.setReceiverId(receiverId);
+        message.setContent(message.getContent());
+        message.setType(message.getType());
+        message.setImageUrls(message.getImageUrls());
+        message.setVideoInfos(message.getVideoInfos());
+        message.setForwardedFrom(new MessageReference(messageId, message.getSenderId()));
+        message.setStatus(MessageStatus.SENT);
+        message.setCreatedAt(LocalDateTime.now());
+        message.setUpdatedAt(LocalDateTime.now());
+        message.setRead(false);
 
-        messageRepository.save(forwardedMessage);
+        messageRepository.save(message);
         log.info("Message forwarded: {} for sender: {}", messageId, userId);
+    }
+
+    @Override
+    public void readMessage(String messageId, String receiverId) {
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if (messageOptional.isPresent()) {
+            Message message = messageOptional.get();
+            if (message.getReceiverId().equals(receiverId)) {
+                message.setRead(true);
+                messageRepository.save(message);
+                log.info("Message read: {} for sender: {}", messageId, receiverId);
+            } else {
+                throw new ResourceNotFoundException("Only receiver have permission to read this message");
+            }
+        } else {
+            throw new ResourceNotFoundException("Message not found");
+        }
+    }
+
+    @Override
+    public void pinMessage(String messageId, String userId) {
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if (messageOptional.isEmpty()) {
+            throw new ResourceNotFoundException("Message not found");
+        }
+        messageOptional.get().setPinned(true);
+        messageOptional.get().setPinnedAt(LocalDateTime.now());
+
+        messageRepository.save(messageOptional.get());
+
+        log.info("Message pinned: {} for sender: {}", messageId, userId);
+    }
+
+    @Override
+    public void unpinMessage(String messageId, String userId) {
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if (messageOptional.isEmpty()) {
+            throw new ResourceNotFoundException("Message not found");
+        }
+        messageOptional.get().setPinned(false);
+        messageOptional.get().setPinnedAt(null);
+        messageRepository.save(messageOptional.get());
+
+        log.info("Message unpinned: {} for sender: {}", messageId, userId);
+    }
+
+    @Override
+    public List<MessageResponse> getPinnedMessages(String otherUserId, String groupId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = userRepository.findByUsername(authentication.getName()).getId();
+
+        List<Message> pinnedMessages;
+        if (groupId != null) {
+            validateGroup(groupId, userId);
+            pinnedMessages = messageRepository.findByGroupIdAndPinned(groupId, true);
+        } else {
+            validateUser(userId, otherUserId);
+            pinnedMessages = messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderIdAndPinned(userId, otherUserId, userId, otherUserId, true);
+        }
+
+        return pinnedMessages
+                .stream()
+                .map(this::convertToMessageResponse)
+                .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<MessageResponse> searchMessages(String userId, String otherUserId, String groupId, String keyword) {
+        validateUser(userId, otherUserId);
+
+        if (groupId != null) {
+            validateGroup(groupId, userId);
+            return messageRepository.findByGroupIdAndContentContaining(groupId, keyword)
+                    .stream()
+                    .filter(msg ->
+                            (msg.getContent() != null && msg.getContent().contains(keyword))
+                                    || (msg.getFileName() != null && msg.getFileName().contains(keyword)))
+                    .map(this::convertToMessageResponse)
+                    .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
+                    .collect(Collectors.toList());
+        }
+        return messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(userId, otherUserId, userId, otherUserId)
+                .stream()
+                .filter(msg ->
+                        (msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
+                                || (msg.getFileName() != null && msg.getFileName().toLowerCase().contains(keyword.toLowerCase()))
+                )
+                .map(this::convertToMessageResponse)
+                .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public MessageResponse convertToMessageResponse(Message message) {
+        return new MessageResponse(
+                message.getId(),
+                message.getSenderId(),
+                message.getReceiverId(),
+                message.getGroupId(),
+                message.getContent(),
+                message.getType(),
+                message.getImageUrls(),
+                message.getVideoInfos(),
+                message.getFileName(),
+                message.getReplyToMessageId(),
+                message.getThumbnail(),
+                message.getPublicId(),
+                message.isRecalled(),
+                message.getDeleteBy() != null ? new ArrayList<>(message.getDeleteBy().keySet()) : null,
+                message.getStatus(),
+                message.getForwardedFrom() != null ? new MessageReference(
+                        message.getForwardedFrom().getMessageId(), message.getForwardedFrom().getOriginalSenderId()) : null,
+                message.isRead(),
+                message.getCreatedAt(),
+                message.getUpdatedAt(),
+                message.isPinned(),
+                message.getPinnedAt()
+        );
     }
 
     private void validateUser(String senderId, String receiverId) {
@@ -306,29 +417,5 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    @Override
-    public MessageResponse convertToMessageResponse(Message message) {
-        return new MessageResponse(
-                message.getId(),
-                message.getSenderId(),
-                message.getReceiverId(),
-                message.getGroupId(),
-                message.getContent(),
-                message.getType(),
-                message.getImageUrls(),
-                message.getVideoInfos(),
-                message.getFileName(),
-                message.getReplyToMessageId(),
-                message.getThumbnail(),
-                message.getPublicId(),
-                message.isRecalled(),
-                message.getDeleteBy() != null ? new ArrayList<>(message.getDeleteBy().keySet()) : null,
-                message.getStatus(),
-                message.getForwardedFrom() != null ? new MessageReference(
-                        message.getForwardedFrom().getMessageId(), message.getForwardedFrom().getOriginalSenderId()) : null,
-                message.isRead(),
-                message.getCreatedAt(),
-                message.getUpdatedAt()
-        );
-    }
 }
+

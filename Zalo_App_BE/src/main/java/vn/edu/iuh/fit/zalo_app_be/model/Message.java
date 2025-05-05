@@ -48,6 +48,8 @@ public class Message {
     private String thumbnail; // thumbnail of video
     private String publicId; // public id of file in cloudinary
     private String contentAfterRecallOrDelete; // content after recall or delete
+    private boolean isPinned = false; // pinned message
+    private LocalDateTime pinnedAt;
     @CreatedDate
     @Indexed
     private LocalDateTime createdAt;

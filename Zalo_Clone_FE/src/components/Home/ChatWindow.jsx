@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText } from '@mui/material';
-import { BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare } from 'react-icons/bi';
+import { BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup } from 'react-icons/bi';
 import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage } from '../../api/messageApi';
+import { fetchGroupMembers } from '../../api/groupApi';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -33,12 +34,11 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
   const [isSending, setIsSending] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
+  const [groupMembers, setGroupMembers] = useState([]);
   const token = localStorage.getItem('accessToken');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    // Đồng bộ localMessages với messages từ Home.jsx
-    // Loại bỏ tin nhắn trùng lặp dựa trên id
     const uniqueMessages = messages.reduce((acc, msg) => {
       if (!acc.some(item => item.id === msg.id)) {
         acc.push(msg);
@@ -47,6 +47,20 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
     }, []);
     setLocalMessages(uniqueMessages);
   }, [messages]);
+
+  useEffect(() => {
+    if (selectedContact?.isGroup) {
+      fetchGroupMembers(selectedContact.id, token)
+        .then(members => {
+          setGroupMembers(members);
+        })
+        .catch(error => {
+          console.error('Error fetching group members:', error);
+        });
+    } else {
+      setGroupMembers([]);
+    }
+  }, [selectedContact, token]);
 
   const handleSendMessage = () => {
     if (!messageInput.trim()) return;
@@ -57,13 +71,13 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
 
-    const tempKey = `${Date.now()}-${messageInput}`; // Định danh tạm thời
+    const tempKey = `${Date.now()}-${messageInput}`;
     const message = {
       senderId: userId,
-      receiverId: selectedContact?.id,
+      [selectedContact.isGroup ? 'groupId' : 'receiverId']: selectedContact.id,
       content: messageInput,
       type: 'TEXT',
-      tempKey: tempKey, // Sử dụng tempKey để xác định tin nhắn tạm thời
+      tempKey: tempKey,
     };
 
     try {
@@ -77,7 +91,6 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           deletedByUsers: [],
           isRead: false,
         };
-        // Không thêm trực tiếp vào localMessages, chỉ gửi lên Home.jsx
         onMessageInputChange({ target: { value: '' } });
         onSendMessage(newMessage);
         toast.success('Tin nhắn đã được gửi!');
@@ -102,7 +115,12 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
     try {
-      const fileUrls = await uploadFile(files, selectedContact?.id, token);
+      const fileUrls = await uploadFile(
+        files,
+        selectedContact.isGroup ? null : selectedContact.id,
+        token,
+        selectedContact.isGroup ? selectedContact.id : null
+      );
       fileUrls.forEach(url => {
         const file = files[0];
         const contentType = file.type || '';
@@ -115,10 +133,10 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           type = 'FILE';
         }
 
-        const tempKey = `${Date.now()}-${url}`; // Định danh tạm thời
+        const tempKey = `${Date.now()}-${url}`;
         const message = {
           senderId: userId,
-          receiverId: selectedContact?.id,
+          [selectedContact.isGroup ? 'groupId' : 'receiverId']: selectedContact.id,
           content: url,
           type: type,
           tempKey: tempKey,
@@ -127,7 +145,6 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           deletedByUsers: [],
           isRead: false,
         };
-        // Không thêm trực tiếp vào localMessages, chỉ gửi lên Home.jsx
         onSendMessage(message);
       });
       toast.success('File đã được gửi!');
@@ -161,7 +178,6 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
               : msg
           )
         );
-        // Không gọi onSendMessage để tránh thêm tin nhắn mới
         toast.success('Tin nhắn đã được thu hồi!');
       } else {
         toast.error('Không thể thu hồi tin nhắn: WebSocket không hoạt động');
@@ -233,16 +249,16 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       const success = forwardMessage(
         identifier,
         userId,
-        contact.id,
-        null,
+        contact.isGroup ? null : contact.id,
+        contact.isGroup ? contact.id : null,
         messageToForward.content,
         token
       );
       if (success) {
-        const tempKey = `${Date.now()}-${messageToForward.content}`; // Định danh tạm thời
+        const tempKey = `${Date.now()}-${messageToForward.content}`;
         const newMessage = {
           senderId: userId,
-          receiverId: contact.id,
+          [contact.isGroup ? 'groupId' : 'receiverId']: contact.id,
           content: messageToForward.content,
           type: 'FORWARD',
           forwardedFrom: { messageId: messageToForward.id, senderId: userId },
@@ -252,7 +268,6 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           deletedByUsers: [],
           isRead: false,
         };
-        // Không thêm trực tiếp vào localMessages, chỉ gửi lên Home.jsx
         onSendMessage(newMessage);
         toast.success('Tin nhắn đã được chuyển tiếp!');
       } else {
@@ -284,23 +299,34 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         <Avatar
           src={selectedContact.avatar}
           sx={{ cursor: 'pointer' }}
-          onClick={() => onProfileOpen(selectedContact)}
-        />
+        >
+          {selectedContact.isGroup && <BiGroup />}
+        </Avatar>
         <Box ml={2} flex={1} sx={{ cursor: 'pointer' }} onClick={() => onProfileOpen(selectedContact)}>
           <Typography variant="subtitle1">{selectedContact.name}</Typography>
           <Typography variant="caption" color="textSecondary">
-            {selectedContact.status === 'online' ? 'Online' : 'Offline'}
+            {selectedContact.isGroup
+              ? `Nhóm (${groupMembers.length} thành viên)`
+              : selectedContact.status === 'online' ? 'Online' : 'Offline'}
           </Typography>
         </Box>
-        <IconButton>
-          <BiPhone />
-        </IconButton>
-        <IconButton>
-          <BiVideo />
-        </IconButton>
-        <IconButton>
-          <BiDotsVerticalRounded />
-        </IconButton>
+        {selectedContact.isGroup ? (
+          <IconButton onClick={() => onProfileOpen({ ...selectedContact, members: groupMembers })}>
+            <BiDotsVerticalRounded />
+          </IconButton>
+        ) : (
+          <>
+            <IconButton>
+              <BiPhone />
+            </IconButton>
+            <IconButton>
+              <BiVideo />
+            </IconButton>
+            <IconButton>
+              <BiDotsVerticalRounded />
+            </IconButton>
+          </>
+        )}
       </Box>
 
       <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: 'background.default' }}>
@@ -325,23 +351,58 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             <MessageBubble isSender={message.senderId === userId}>
               {message.recalled ? (
                 <Typography fontStyle="italic">Tin nhắn đã được thu hồi</Typography>
-              ) : (message.deletedByUsers?.includes(message.senderId) || message.deletedByUsers?.includes(message.receiverId)) ? (
+              ) : (message.deletedByUsers?.includes(message.senderId) || message.deletedByUsers?.includes(message.receiverId) || message.deletedByUsers?.includes(userId)) ? (
                 <Typography fontStyle="italic">Tin nhắn đã bị xóa</Typography>
               ) : message.type === 'TEXT' ? (
-                <Typography>{message.content}</Typography>
-              ) : message.type === 'IMAGE' ? (
-                <img src={message.content} alt="Uploaded" style={{ maxWidth: '200px', borderRadius: '8px' }} />
-              ) : message.type === 'VIDEO' ? (
-                <video src={message.content} controls style={{ maxWidth: '200px', borderRadius: '8px' }} />
-              ) : message.type === 'FORWARD' ? (
-                <Box>
-                  <Typography fontStyle="italic" variant="caption">
-                    Chuyển tiếp từ {message.forwardedFrom?.senderId || 'người dùng khác'}
-                  </Typography>
+                <>
+                  {selectedContact.isGroup && message.senderId !== userId && (
+                    <Typography variant="caption" display="block" sx={{ opacity: 0.7, mb: 1 }}>
+                      {groupMembers.find(m => m.id === message.senderId)?.username || 'Unknown'}
+                    </Typography>
+                  )}
                   <Typography>{message.content}</Typography>
-                </Box>
+                </>
+              ) : message.type === 'IMAGE' ? (
+                <>
+                  {selectedContact.isGroup && message.senderId !== userId && (
+                    <Typography variant="caption" display="block" sx={{ opacity: 0.7, mb: 1 }}>
+                      {groupMembers.find(m => m.id === message.senderId)?.username || 'Unknown'}
+                    </Typography>
+                  )}
+                  <img src={message.content} alt="Uploaded" style={{ maxWidth: '200px', borderRadius: '8px' }} />
+                </>
+              ) : message.type === 'VIDEO' ? (
+                <>
+                  {selectedContact.isGroup && message.senderId !== userId && (
+                    <Typography variant="caption" display="block" sx={{ opacity: 0.7, mb: 1 }}>
+                      {groupMembers.find(m => m.id === message.senderId)?.username || 'Unknown'}
+                    </Typography>
+                  )}
+                  <video src={message.content} controls style={{ maxWidth: '200px', borderRadius: '8px' }} />
+                </>
+              ) : message.type === 'FORWARD' ? (
+                <>
+                  {selectedContact.isGroup && message.senderId !== userId && (
+                    <Typography variant="caption" display="block" sx={{ opacity: 0.7, mb: 1 }}>
+                      {groupMembers.find(m => m.id === message.senderId)?.username || 'Unknown'}
+                    </Typography>
+                  )}
+                  <Box>
+                    <Typography fontStyle="italic" variant="caption">
+                      Chuyển tiếp từ {message.forwardedFrom?.senderId || 'người dùng khác'}
+                    </Typography>
+                    <Typography>{message.content}</Typography>
+                  </Box>
+                </>
               ) : (
-                <a href={message.content} target="_blank" rel="noopener noreferrer">Xem file</a>
+                <>
+                  {selectedContact.isGroup && message.senderId !== userId && (
+                    <Typography variant="caption" display="block" sx={{ opacity: 0.7, mb: 1 }}>
+                      {groupMembers.find(m => m.id === message.senderId)?.username || 'Unknown'}
+                    </Typography>
+                  )}
+                  <a href={message.content} target="_blank" rel="noopener noreferrer">Xem file</a>
+                </>
               )}
               <Typography variant="caption" display="block" textAlign="right" sx={{ opacity: 0.7 }}>
                 {new Date(message.createAt).toLocaleTimeString()}
@@ -383,15 +444,20 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       </Box>
 
       <Dialog open={forwardDialogOpen} onClose={() => setForwardDialogOpen(false)}>
-        <DialogTitle>Chọn liên hệ để chuyển tiếp</DialogTitle>
+        <DialogTitle>Chọn liên hệ hoặc nhóm để chuyển tiếp</DialogTitle>
         <DialogContent>
           <List>
             {contacts.map((contact) => (
               <ListItem key={contact.id} onClick={() => handleForwardMessage(contact)}>
                 <ListItemAvatar>
-                  <Avatar src={contact.avatar} />
+                  <Avatar src={contact.avatar}>
+                    {contact.isGroup && <BiGroup />}
+                  </Avatar>
                 </ListItemAvatar>
-                <ListItemText primary={contact.name} secondary={contact.username} />
+                <ListItemText
+                  primary={contact.isGroup ? `[Nhóm] ${contact.name}` : contact.name}
+                  secondary={contact.isGroup ? 'Nhóm' : contact.username}
+                />
               </ListItem>
             ))}
           </List>

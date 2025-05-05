@@ -24,6 +24,8 @@ import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -57,12 +59,7 @@ public class WebSocketServiceImpl implements WebSocketService {
                 log.error("Group not found: {}", request.getGroupId());
                 throw new MessageSendException("Group not found");
             }
-            for (String memberId : group.get().getMemberIds()) {
-                if (!memberId.equals(request.getSenderId())) {
-                    template.convertAndSendToUser(memberId, "/queue/messages", request);
-                    log.info("Group message sent from {} to {}: {}", request.getSenderId(), memberId, request.getContent());
-                }
-            }
+            template.convertAndSend("/topic/group/" + request.getGroupId(), request);
             log.info("Group message sent from {} to group {}: {}", request.getSenderId(), request.getGroupId(), request.getContent());
         } catch (Exception e) {
             log.error("Error sending group message: {}", e.getMessage());
@@ -78,7 +75,7 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public void notifyFriendRequestAccepted(String senderId, String receiverUsername) {
-        template.convertAndSendToUser(senderId, "/queue/notifications", Map.of("type", FriendStatus.ACCEPTED, "receiver", receiverUsername));
+        template.convertAndSendToUser(senderId, "queue/notifications", Map.of("type", FriendStatus.ACCEPTED, "receiver", receiverUsername));
         log.info("Friend request accepted notification sent to {} from {}", senderId, receiverUsername);
     }
 
@@ -93,18 +90,99 @@ public class WebSocketServiceImpl implements WebSocketService {
     }
 
     @Override
+    public void notifyGroupRecall(String messageId, String userId, String groupId) {
+        MessageResponse response = messageService.convertToMessageResponse(
+                messageRepository.findById(messageId).orElseThrow()
+        );
+        template.convertAndSend("/topic/group/" + groupId, response);
+    }
+
+    @Override
     public void notifyDelete(String messageId, String userId) {
         MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
         template.convertAndSendToUser(userId, "/queue/delete", messageResponse);
-        if (!userId.equals(messageResponse.getReceiverId())) {
-            template.convertAndSendToUser(messageResponse.getReceiverId(), "/queue/delete", messageResponse);
-        }
         log.info("Delete notification sent for message {} to user {}", messageId, userId);
     }
 
     @Override
-    public void notifyForward(String messageId, String userId, String receiverId) {
-        MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
-        template.convertAndSendToUser(receiverId, "/queue/forward", messageResponse);
+    public void notifyGroupDelete(String messageId, String userId, String groupId) {
+        MessageResponse response = messageService.convertToMessageResponse(
+                messageRepository.findById(messageId).orElseThrow()
+        );
+        template.convertAndSend("/topic/group/" + groupId, response);
+        log.info("Group delete notification sent for message {} to user {}", messageId, userId);
     }
+
+    @Override
+    public void notifyRead(String messageId, String userId) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/read", response);
+        log.info("Read notification sent for message {} to user {}", messageId, userId);
+    }
+
+    @Override
+    public void notifyPin(String messageId, String userId) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/pin", response);
+        if (response.getGroupId() != null) {
+            template.convertAndSend("/topic/group/" + response.getGroupId(), response);
+        }
+        log.info("Pin notification sent for message {} to user {}", messageId, userId);
+    }
+
+    @Override
+    public void notifyUnpin(String messageId, String userId) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/unpin", response);
+        if (response.getGroupId() != null) {
+            template.convertAndSend("/topic/group/" + response.getGroupId(), response);
+        }
+        log.info("Unpin notification sent for message {} to user {}", messageId, userId);
+    }
+
+    @Override
+    public void notifyGroupCreate(Group group) {
+        for (String memberId : group.getMemberIds()) {
+            template.convertAndSendToUser(memberId, "/queue/group/create", group);
+            log.info("Group creation notification sent to {}: {}", memberId, group.getName());
+        }
+    }
+
+    @Override
+    public void notifyGroupUpdate(Group group, String actorId, List<String> affectedMemberIds, String action) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("group", group);
+        notification.put("actorId", actorId);
+        notification.put("affectedMemberIds", affectedMemberIds);
+        notification.put("action", action);
+
+        for (String memberId : group.getMemberIds()) {
+            template.convertAndSendToUser(
+                    memberId,
+                    "/queue/group/updated",
+                    notification
+            );
+        }
+
+        if (affectedMemberIds != null) {
+            for (String memberId : affectedMemberIds) {
+                if (!group.getMemberIds().contains(memberId)) {
+                    template.convertAndSendToUser(
+                            memberId,
+                            "/queue/group/updated",
+                            notification
+                    );
+                }
+            }
+        }
+    }
+
+    @Override
+    public void notifyGroupDelete(Group group) {
+        for (String memberId : group.getMemberIds()) {
+            template.convertAndSendToUser(memberId, "/queue/group/delete", group);
+            log.info("Group deletion notification sent to {}: {}", memberId, group.getName());
+        }
+    }
+
 }

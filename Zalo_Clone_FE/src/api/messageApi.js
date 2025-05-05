@@ -7,7 +7,7 @@ const SOCKJS_URL = '/ws';
 
 let stompClient = null;
 
-// Hàm lấy lịch sử tin nhắn
+// Hàm lấy lịch sử tin nhắn 1-1
 export const getChatHistory = async (userId, token) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/chat-history/${userId}`, {
@@ -25,6 +25,28 @@ export const getChatHistory = async (userId, token) => {
       }));
   } catch (error) {
     console.error('Error fetching chat history:', error);
+    throw error;
+  }
+};
+
+// Hàm lấy lịch sử tin nhắn nhóm
+export const getGroupChatHistory = async (groupId, token) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/chat-history/group/${groupId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
+    return response.data
+      .filter(msg => !deletedMessageIds.includes(msg._id || msg.id))
+      .map(msg => ({
+        ...msg,
+        id: msg._id || msg.id,
+        _id: undefined,
+      }));
+  } catch (error) {
+    console.error('Error fetching group chat history:', error);
     throw error;
   }
 };
@@ -54,7 +76,7 @@ export const uploadFile = async (files, receiverId, token, groupId = null, reply
 };
 
 // Hàm kết nối WebSocket với STOMP
-export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallback, onRecallCallback) {
+export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallback, onRecallCallback, groupIds = []) {
   return new Promise((resolve, reject) => {
     if (!token) {
       reject(new Error('Token is missing'));
@@ -91,9 +113,15 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
     });
 
     stompClient.onConnect = (frame) => {
+      if (!stompClient) {
+        console.error('STOMP client is null in onConnect');
+        reject(new Error('STOMP client is null'));
+        return;
+      }
+
       console.log('STOMP connected:', frame);
       
-      // Subscription cho tin nhắn mới
+      // Subscription cho tin nhắn 1-1
       stompClient.subscribe(`/user/${userId}/queue/messages`, (message) => {
         try {
           const parsedMessage = JSON.parse(message.body);
@@ -107,6 +135,27 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
           console.error('Error parsing message:', error);
         }
       }, { Authorization: `Bearer ${token}` });
+
+      // Subscription cho tin nhắn nhóm
+      groupIds.forEach(groupId => {
+        if (groupId) {
+          stompClient.subscribe(`/topic/group/${groupId}`, (message) => {
+            try {
+              const parsedMessage = JSON.parse(message.body);
+              console.log('Raw group WebSocket response:', parsedMessage);
+              if (parsedMessage._id) {
+                parsedMessage.id = parsedMessage._id;
+                delete parsedMessage._id;
+              }
+              onMessageCallback(parsedMessage);
+            } catch (error) {
+              console.error('Error parsing group message:', error);
+            }
+          }, { Authorization: `Bearer ${token}` });
+        } else {
+          console.warn('Skipping subscription for undefined groupId');
+        }
+      });
 
       // Subscription cho thông báo xóa
       stompClient.subscribe(`/user/${userId}/queue/delete`, (message) => {
@@ -161,7 +210,7 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
   });
 }
 
-// Hàm gửi tin nhắn
+// Hàm gửi tin nhắn 1-1
 export function sendMessage(destination, message, token) {
   if (!stompClient || !stompClient.connected) {
     console.error('Cannot send message: STOMP client is not connected');
@@ -178,6 +227,27 @@ export function sendMessage(destination, message, token) {
     return true;
   } catch (error) {
     console.error('Error sending message:', error);
+    return false;
+  }
+}
+
+// Hàm gửi tin nhắn nhóm
+export function sendGroupMessage(destination, message, token) {
+  if (!stompClient || !stompClient.connected) {
+    console.error('Cannot send group message: STOMP client is not connected');
+    return false;
+  }
+
+  try {
+    stompClient.publish({
+      destination,
+      body: JSON.stringify(message),
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log('Sent group message to', destination, ':', message);
+    return true;
+  } catch (error) {
+    console.error('Error sending group message:', error);
     return false;
   }
 }
@@ -260,8 +330,8 @@ export function disconnectWebSocket() {
   if (stompClient && stompClient.connected) {
     console.log('Disconnecting STOMP');
     stompClient.deactivate();
+    stompClient = null;
   } else {
     console.log('No active STOMP connection to disconnect');
   }
-  stompClient = null;
 }

@@ -29,11 +29,10 @@ import vn.edu.iuh.fit.zalo_app_be.model.User;
 import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.GroupService;
+import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,36 +41,38 @@ import java.util.stream.Collectors;
 public class GroupServiceImpl implements GroupService {
     private final GroupRepository groupRepository;
     private final UserRepository userRepository;
+    private final WebSocketService webSocketService;
     private final Cloudinary cloudinary;
 
     @Override
     public GroupResponse createGroup(GroupRequest request) {
-        validateUser(request.getCreateId());
+        validateGroup(request.getName(), request.getMemberIds(), request.getCreateId());
         Group group = new Group();
         group.setName(request.getName());
         group.setCreateId(request.getCreateId());
-
-        List<String> memberIds = request.getMemberIds();
-        memberIds.add(request.getCreateId());
-
-        group.setMemberIds(memberIds);
-
-        Map<String, Roles> roles = request.getRoles() != null ? new HashMap<>(request.getRoles()) : new HashMap<>();
-
+        group.setMemberIds(new ArrayList<>(request.getMemberIds()));
+        Map<String, Roles> roles = new HashMap<>();
         roles.put(request.getCreateId(), Roles.ADMIN);
+        for (String memberId : request.getMemberIds()) {
+            if (!memberId.equals(request.getCreateId())) {
+                roles.put(memberId, Roles.MEMBER);
+            }
+        }
         group.setRoles(roles);
-
+        group.setCreateAt(LocalDateTime.now());
+        group.setUpdateAt(LocalDateTime.now());
         group.setActive(true);
-
         groupRepository.save(group);
 
         log.info("Group created: {}", group);
+
+        webSocketService.notifyGroupCreate(group);
 
         return convertToGroupResponse(group);
     }
 
     @Override
-    public GroupResponse addMember(String groupId, List<String> userIds) {
+    public GroupResponse addMember(String groupId, List<String> memberIds) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         User user = (User) authentication.getPrincipal();
@@ -80,26 +81,35 @@ public class GroupServiceImpl implements GroupService {
         if (group.isEmpty()) {
             throw new ResourceNotFoundException("Group not found");
         }
-        validateAdmin(group.get(), user.getId());
 
-        for (String userId : userIds) {
-            validateUser(userId);
-            if (!group.get().getMemberIds().contains(userId)) {
-                group.get().getMemberIds().add(userId);
-                group.get().getRoles().put(userId, Roles.MEMBER);
+        if (!group.get().isActive()) {
+            throw new ResourceNotFoundException("Group is not active");
+        }
 
-                log.info("User {} added to group {}", userId, groupId);
-            } else {
-                throw new ResourceNotFoundException("User already in the group");
+        for (String memberId : memberIds) {
+            if (userRepository.findById(memberId).isEmpty()) {
+                throw new ResourceNotFoundException("Thành viên không tồn tại: " + memberId);
+            }
+            if (group.get().getMemberIds().contains(memberId)) {
+                throw new IllegalArgumentException("Thành viên đã có trong nhóm: " + memberId);
             }
         }
+
+        group.get().getMemberIds().addAll(memberIds);
+
+        for (String memberId : memberIds) {
+            group.get().getRoles().put(memberId, Roles.MEMBER);
+        }
+
         groupRepository.save(group.get());
+
+        webSocketService.notifyGroupUpdate(group.get(), user.getId(), memberIds, "ADD_MEMBER");
 
         return convertToGroupResponse(group.get());
     }
 
     @Override
-    public GroupResponse removeMember(String groupId, String userId) {
+    public GroupResponse removeMember(String groupId, String memberId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         User user = (User) authentication.getPrincipal();
@@ -107,20 +117,26 @@ public class GroupServiceImpl implements GroupService {
         if (group.isEmpty()) {
             throw new ResourceNotFoundException("Group not found");
         }
+
+        if (!group.get().isActive()) {
+            throw new IllegalStateException("Nhóm đã bị giải tán");
+        }
+        if (!group.get().getMemberIds().contains(memberId)) {
+            throw new ResourceNotFoundException("Thành viên không có trong nhóm: " + memberId);
+        }
         validateAdmin(group.get(), user.getId());
 
-        if (group.get().getMemberIds().contains(userId)) {
-            group.get().getMemberIds().remove(userId);
-            group.get().getRoles().remove(userId);
+        group.get().getMemberIds().remove(memberId);
+        group.get().getRoles().remove(memberId);
 
-            groupRepository.save(group.get());
+        groupRepository.save(group.get());
 
-            log.info("User {} removed from group {}", userId, groupId);
+        log.info("Member {} removed from group {}", memberId, groupId);
 
-            return convertToGroupResponse(group.get());
-        } else {
-            throw new ResourceNotFoundException("User not in the group");
-        }
+        webSocketService.notifyGroupUpdate(group.get(), user.getId(), List.of(memberId), "REMOVE_MEMBER");
+
+        return convertToGroupResponse(group.get());
+
     }
 
     @Override
@@ -132,9 +148,14 @@ public class GroupServiceImpl implements GroupService {
         if (group.isEmpty()) {
             throw new ResourceNotFoundException("Group not found");
         }
+
+        validateAdmin(group.get(), user.getId());
+
         group.get().setActive(false);
         groupRepository.save(group.get());
         log.info("Group {} dissolved by {}", groupId, user.getId());
+
+        webSocketService.notifyGroupDelete(group.get());
     }
 
     @Override
@@ -181,6 +202,12 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public GroupResponse updateGroup(String groupId, GroupRequest request, MultipartFile file) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) authentication.getPrincipal();
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
         Optional<Group> group = groupRepository.findById(groupId);
         if (group.isEmpty()) {
             throw new ResourceNotFoundException("Group not found");
@@ -214,6 +241,41 @@ public class GroupServiceImpl implements GroupService {
 
         groupRepository.save(group.get());
 
+        webSocketService.notifyGroupUpdate(group.get(), user.getId(), List.of(user.getId()), "UPDATE_GROUP");
+
+        return convertToGroupResponse(group.get());
+    }
+
+    @Override
+    public GroupResponse setAdmin(String groupId, String memberId, boolean isAdmin, String userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) authentication.getPrincipal();
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
+        Optional<Group> group = groupRepository.findById(groupId);
+        if (group.isEmpty()) {
+            throw new ResourceNotFoundException("Group not found");
+        }
+
+        validateAdmin(group.get(), userId);
+
+        if (isAdmin) {
+            group.get().getRoles().put(memberId, Roles.ADMIN);
+        } else {
+            if (group.get().getRoles().get(memberId).equals(Roles.ADMIN)) {
+                if (group.get().getRoles().values().stream().filter(r -> r.equals(Roles.ADMIN)).count() == 1) {
+                    throw new IllegalStateException("Dont remove the last admin");
+                }
+                group.get().getRoles().put(memberId, Roles.MEMBER);
+            }
+        }
+        groupRepository.save(group.get());
+        log.info("User {} set as admin in group {}", memberId, groupId);
+
+        webSocketService.notifyGroupUpdate(group.get(), user.getId(), List.of(memberId), "SET_ADMIN");
+
         return convertToGroupResponse(group.get());
     }
 
@@ -221,6 +283,23 @@ public class GroupServiceImpl implements GroupService {
         Optional<User> user = userRepository.findById(userId);
         if (user.isEmpty()) {
             throw new ResourceNotFoundException("User not found");
+        }
+    }
+
+    private void validateGroup(String name, List<String> memberIds, String createId) {
+        if (name == null || name.isEmpty()) {
+            throw new ResourceNotFoundException("Group name cannot be empty");
+        }
+        if (memberIds == null || memberIds.isEmpty()) {
+            throw new ResourceNotFoundException("Member IDs cannot be empty");
+        }
+        if (userRepository.findById(createId).isEmpty()) {
+            throw new ResourceNotFoundException("Creator ID cannot be empty");
+        }
+        for (String memberId : memberIds) {
+            if (userRepository.findById(memberId).isEmpty()) {
+                throw new ResourceNotFoundException("Member ID cannot be empty");
+            }
         }
     }
 

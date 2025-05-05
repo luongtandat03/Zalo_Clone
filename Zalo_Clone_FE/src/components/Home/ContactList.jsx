@@ -1,6 +1,6 @@
 import React from "react";
 import { List, ListItem, ListItemAvatar, ListItemText, Avatar, Badge, TextField, InputAdornment, Typography, Button } from "@mui/material";
-import { BiSearch } from "react-icons/bi";
+import { BiSearch, BiGroup } from "react-icons/bi";
 
 const ContactList = ({ contacts, selectedContact, onContactSelect, pendingRequests, onAcceptFriendRequest, isLoading }) => {
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -13,7 +13,7 @@ const ContactList = ({ contacts, selectedContact, onContactSelect, pendingReques
     <>
       <TextField
         fullWidth
-        placeholder="Search"
+        placeholder="Tìm kiếm"
         variant="outlined"
         size="small"
         sx={{ mb: 2 }}
@@ -28,7 +28,6 @@ const ContactList = ({ contacts, selectedContact, onContactSelect, pendingReques
         }}
       />
 
-      {/* Hiển thị danh sách lời mời kết bạn đang chờ */}
       {pendingRequests && pendingRequests.length > 0 && (
         <>
           <Typography variant="subtitle1" sx={{ px: 2, mb: 1, fontWeight: "bold" }}>
@@ -63,15 +62,14 @@ const ContactList = ({ contacts, selectedContact, onContactSelect, pendingReques
         </>
       )}
 
-      {/* Danh sách bạn bè */}
       <Typography variant="subtitle1" sx={{ px: 2, mb: 1, fontWeight: "bold" }}>
-        Danh sách bạn bè
+        Danh sách nhóm và bạn bè
       </Typography>
       <List sx={{ overflow: "auto", flex: 1 }}>
         {filteredContacts.map((contact) => (
           <ListItem
             key={contact.id}
-            button // Thuộc tính button bật chế độ tương tác, không cần giá trị
+            button
             selected={selectedContact?.id === contact.id}
             onClick={() => onContactSelect(contact)}
           >
@@ -80,15 +78,17 @@ const ContactList = ({ contacts, selectedContact, onContactSelect, pendingReques
                 overlap="circular"
                 anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
                 variant="dot"
-                color={contact.status === "online" ? "success" : "error"}
+                color={contact.isGroup ? "default" : contact.status === "online" ? "success" : "error"}
               >
-                <Avatar src={contact.avatar} />
+                <Avatar src={contact.avatar}>
+                  {contact.isGroup && <BiGroup />}
+                </Avatar>
               </Badge>
             </ListItemAvatar>
             <ListItemText
               primary={
                 <Typography variant="subtitle1" fontWeight="medium">
-                  @{contact.username}
+                  {contact.isGroup ? `[Nhóm] ${contact.name}` : `@${contact.username}`}
                 </Typography>
               }
               secondary={

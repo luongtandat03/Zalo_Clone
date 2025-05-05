@@ -14,7 +14,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageStatus;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.model.MessageReference;
@@ -45,8 +44,8 @@ public class MessageResponse {
     private MessageStatus status;
     private MessageReference forwardedFrom;
     private boolean isRead;
-    @JsonProperty("createdAt")
     private LocalDateTime createAt;
-    @JsonProperty("updatedAt")
     private LocalDateTime updateAt;
+    private boolean isPinned;
+    private LocalDateTime pinnedAt;
 }

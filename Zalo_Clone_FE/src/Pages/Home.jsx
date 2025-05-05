@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo, Component } from "react";
 import { ThemeProvider, styled, createTheme } from "@mui/material/styles";
-import { CssBaseline, TextField } from '@mui/material';
+import { CssBaseline, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Button, Checkbox, List, ListItem, ListItemText } from '@mui/material';
 import { Box, Typography, IconButton, Menu, MenuItem, Snackbar, Alert } from "@mui/material";
 import { BiUserPlus, BiGroup, BiDotsVerticalRounded } from "react-icons/bi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import NavSidebar from "../components/Home/NavSidebar";
 import ContactList from "../components/Home/ContactList";
 import SettingsPanel from "../components/Home/SettingsPanel";
 import ChatWindow from "../components/Home/ChatWindow";
 import ProfileModal from "../components/Home/ProfileModal";
 import { fetchUserProfile, fetchFriendsList, sendFriendRequest, fetchPendingFriendRequests, acceptFriendRequest } from "../api/user";
-import { getChatHistory, connectWebSocket, disconnectWebSocket } from "../api/messageApi";
+import { getChatHistory, getGroupChatHistory, connectWebSocket, disconnectWebSocket } from "../api/messageApi";
+import { createGroup, fetchUserGroups } from "../api/groupApi";
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -71,6 +72,10 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
 }));
 
 const Home = () => {
+  const location = useLocation();
+  const { token: navToken, userId: navUserId } = location.state || {};
+  const [userId, setUserId] = useState(navUserId || localStorage.getItem('userId') || '680e6d95a73e35151128bf65');
+  const [token, setToken] = useState(navToken || localStorage.getItem('accessToken'));
   const [selectedContact, setSelectedContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
@@ -87,10 +92,10 @@ const Home = () => {
   const [showAddFriendInput, setShowAddFriendInput] = useState(false);
   const [friendIdInput, setFriendIdInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const navigate = useNavigate();
-
-  const userId = localStorage.getItem('userId') || '680e6d95a73e35151128bf65';
-  const token = localStorage.getItem('accessToken');
 
   useEffect(() => {
     console.log('Home mounted with userId:', userId);
@@ -106,97 +111,137 @@ const Home = () => {
     };
   }, [profileOpen, token]);
 
+  const updateGroups = useCallback(async () => {
+    try {
+      const groups = await fetchUserGroups(userId, token);
+      const groupContacts = groups.map(group => ({
+        id: group.id,
+        name: group.name,
+        isGroup: true,
+        avatar: 'https://example.com/group-icon.png',
+        status: 'group',
+        lastMessage: group.lastMessage || '',
+        timestamp: group.timestamp || 'Yesterday',
+      }));
+      setContacts(prev => [...prev.filter(c => !c.isGroup), ...groupContacts]);
+      const groupIds = groups.map(group => group.id).filter(id => id);
+      console.log('Group IDs for subscription:', groupIds);
+      return groupIds;
+    } catch (error) {
+      setSnackbarMessage('Lỗi tải danh sách nhóm: ' + (error.response?.data?.message || error.message));
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+      return [];
+    }
+  }, [userId, token]);
+
   useEffect(() => {
     if (!token) {
+      setSnackbarMessage('Vui lòng đăng nhập để sử dụng chức năng!');
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
       return;
     }
 
-    connectWebSocket(
-      token,
-      userId,
-      (receivedMessage) => {
-        console.log('Received message in Home:', receivedMessage);
-        setMessages((prev) => {
-          const messageExistsById = prev.some(msg => msg.id === receivedMessage.id);
-          if (messageExistsById) {
-            return prev;
-          }
+    let isMounted = true;
 
-          const messageExistsByContent = prev.find(msg =>
-            msg.tempKey &&
-            msg.content === receivedMessage.content &&
-            msg.senderId === receivedMessage.senderId &&
-            msg.receiverId === receivedMessage.receiverId
-          );
-          if (messageExistsByContent) {
-            return prev.map((msg) =>
-              msg.tempKey === messageExistsByContent.tempKey
-                ? { ...receivedMessage, tempKey: undefined }
-                : msg
+    updateGroups().then(groupIds => {
+      if (!isMounted) return;
+
+      connectWebSocket(
+        token,
+        userId,
+        (receivedMessage) => {
+          if (!isMounted) return;
+          console.log('Received message in Home:', receivedMessage);
+          setMessages((prev) => {
+            const messageExistsById = prev.some(msg => msg.id === receivedMessage.id);
+            if (messageExistsById) {
+              return prev;
+            }
+
+            const messageExistsByContent = prev.find(msg =>
+              msg.tempKey &&
+              msg.content === receivedMessage.content &&
+              msg.senderId === receivedMessage.senderId &&
+              (msg.receiverId === receivedMessage.receiverId || msg.groupId === receivedMessage.groupId)
             );
-          }
+            if (messageExistsByContent) {
+              return prev.map((msg) =>
+                msg.tempKey === messageExistsByContent.tempKey
+                  ? { ...receivedMessage, tempKey: undefined }
+                  : msg
+              );
+            }
 
-          const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
-          if (receivedMessage.id && deletedMessageIds.includes(receivedMessage.id)) {
-            return prev;
-          }
+            const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
+            if (deletedMessageIds.includes(receivedMessage.id)) {
+              return prev;
+            }
 
-          let createAt = receivedMessage.createdAt || receivedMessage.createAt;
-          let parsedDate = new Date(createAt);
-          if (isNaN(parsedDate.getTime())) {
-            console.warn('Invalid createAt value:', createAt, 'Using current time as fallback');
-            parsedDate = new Date();
-          } else if (typeof createAt === 'string' && !createAt.endsWith('Z') && !createAt.includes('+')) {
-            createAt = `${createAt}Z`;
-            parsedDate = new Date(createAt);
-          }
+            let createAt = receivedMessage.createdAt || receivedMessage.createAt;
+            let parsedDate = new Date(createAt);
+            if (isNaN(parsedDate.getTime())) {
+              console.warn('Invalid createAt value:', createAt, 'Using current time as fallback');
+              parsedDate = new Date();
+            } else if (typeof createAt === 'string' && !createAt.endsWith('Z') && !createAt.includes('+')) {
+              createAt = `${createAt}Z`;
+              parsedDate = new Date(createAt);
+            }
 
-          return [...prev, {
-            ...receivedMessage,
-            createAt: parsedDate.toISOString(),
-            recalled: receivedMessage.recalled || false,
-            deletedByUsers: receivedMessage.deletedByUsers || [],
-            isRead: receivedMessage.isRead || false,
-          }];
-        });
-      },
-      (deletedMessage) => {
-        console.log('Received delete notification:', deletedMessage);
-        if (deletedMessage.id) {
-          const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
-          if (!deletedMessageIds.includes(deletedMessage.id)) {
-            deletedMessageIds.push(deletedMessage.id);
-            localStorage.setItem('deletedMessageIds', JSON.stringify(deletedMessageIds));
+            return [...prev, {
+              ...receivedMessage,
+              createAt: parsedDate.toISOString(),
+              recalled: receivedMessage.recalled || false,
+              deletedByUsers: receivedMessage.deletedByUsers || [],
+              isRead: receivedMessage.isRead || false,
+            }];
+          });
+        },
+        (deletedMessage) => {
+          if (!isMounted) return;
+          console.log('Received delete notification:', deletedMessage);
+          if (deletedMessage.id) {
+            const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
+            if (!deletedMessageIds.includes(deletedMessage.id)) {
+              deletedMessageIds.push(deletedMessage.id);
+              localStorage.setItem('deletedMessageIds', JSON.stringify(deletedMessageIds));
+            }
           }
-        }
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === deletedMessage.id
-              ? { ...msg, deletedByUsers: deletedMessage.deletedByUsers || [] }
-              : msg
-          )
-        );
-      },
-      (recalledMessage) => {
-        console.log('Received recall notification:', recalledMessage);
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === recalledMessage.id
-              ? { ...msg, recalled: recalledMessage.recalled || false }
-              : msg
-          )
-        );
-      }
-    ).then(() => {
-      console.log('STOMP connected in Home');
-    }).catch((error) => {
-      console.error('Failed to connect STOMP in Home:', error);
-      setSnackbarMessage(`Không thể kết nối WebSocket: ${error.message}`);
-      setSnackbarSeverity("error");
-      setOpenSnackbar(true);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === deletedMessage.id
+                ? { ...msg, deletedByUsers: deletedMessage.deletedByUsers || [] }
+                : msg
+            )
+          );
+        },
+        (recalledMessage) => {
+          if (!isMounted) return;
+          console.log('Received recall notification:', recalledMessage);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === recalledMessage.id
+                ? { ...msg, recalled: recalledMessage.recalled || false }
+                : msg
+            )
+          );
+        },
+        groupIds
+      ).then(() => {
+        if (!isMounted) return;
+        console.log('STOMP connected in Home');
+      }).catch((error) => {
+        if (!isMounted) return;
+        console.error('Failed to connect STOMP in Home:', error);
+        setSnackbarMessage(`Không thể kết nối WebSocket: ${error.message}`);
+        setSnackbarSeverity("error");
+        setOpenSnackbar(true);
+      });
     });
 
     return () => {
+      isMounted = false;
       disconnectWebSocket();
     };
   }, [token, userId]);
@@ -206,23 +251,26 @@ const Home = () => {
     try {
       const data = await fetchFriendsList(token);
       if (data) {
-        setContacts(data.map(friend => ({
-          id: friend.id,
-          name: friend.name,
-          username: friend.name,
-          avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
-          status: friend.status || "offline",
-          lastMessage: friend.lastMessage || "",
-          unreadCount: friend.unreadCount || 0,
-          timestamp: friend.timestamp || "Yesterday",
-        })));
+        setContacts(prev => [
+          ...prev.filter(c => c.isGroup),
+          ...data.map(friend => ({
+            id: friend.id,
+            name: friend.name,
+            username: friend.name,
+            avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
+            status: friend.status || "offline",
+            lastMessage: friend.lastMessage || "",
+            unreadCount: friend.unreadCount || 0,
+            timestamp: friend.timestamp || "Yesterday",
+          })),
+        ]);
       } else {
         setSnackbarMessage("Không thể tải danh sách bạn bè!");
         setSnackbarSeverity("error");
         setOpenSnackbar(true);
       }
     } catch (error) {
-      setSnackbarMessage("Lỗi tải danh sách bạn bè: " + error.message);
+      setSnackbarMessage("Lỗi tải danh sách bạn bè: " + (error.response?.data?.message || error.message));
       setSnackbarSeverity("error");
       setOpenSnackbar(true);
     } finally {
@@ -246,7 +294,7 @@ const Home = () => {
         setOpenSnackbar(true);
       }
     } catch (error) {
-      setSnackbarMessage("Lỗi tải danh sách lời mời: " + error.message);
+      setSnackbarMessage("Lỗi tải danh sách lời mời: " + (error.response?.data?.message || error.message));
       setSnackbarSeverity("error");
       setOpenSnackbar(true);
     } finally {
@@ -257,15 +305,21 @@ const Home = () => {
   useEffect(() => {
     if (currentView === "contacts" || currentView === "messages") {
       updateFriendsList();
-      updatePendingRequests();
+      updateGroups();
     }
-  }, [currentView, updateFriendsList, updatePendingRequests]);
+  }, [currentView, updateFriendsList, updateGroups]);
 
   useEffect(() => {
+    if (!selectedContact || !token || !selectedContact.id) return;
+
     const loadChatHistory = async () => {
-      if (!selectedContact || !token) return;
       try {
-        const chatHistory = await getChatHistory(selectedContact.id, token);
+        let chatHistory;
+        if (selectedContact.isGroup) {
+          chatHistory = await getGroupChatHistory(selectedContact.id, token);
+        } else {
+          chatHistory = await getChatHistory(selectedContact.id, token);
+        }
         console.log('Chat history loaded:', chatHistory);
         const uniqueMessages = chatHistory.reduce((acc, msg) => {
           if (!acc.some(item => item.id === msg.id)) {
@@ -282,6 +336,7 @@ const Home = () => {
               id: msg.id,
               senderId: msg.senderId,
               receiverId: msg.receiverId,
+              groupId: msg.groupId,
               content: msg.content,
               type: msg.type,
               createAt: parsedDate.toISOString(),
@@ -294,7 +349,7 @@ const Home = () => {
         }, []);
         setMessages(uniqueMessages);
       } catch (error) {
-        setSnackbarMessage("Lỗi tải lịch sử tin nhắn: " + error.message);
+        setSnackbarMessage("Lỗi tải lịch sử tin nhắn: " + (error.response?.data?.message || error.message));
         setSnackbarSeverity("error");
         setOpenSnackbar(true);
       }
@@ -313,18 +368,13 @@ const Home = () => {
         );
       }
 
-      const messageExists = prev.some(msg => 
-        msg.tempKey && msg.tempKey === message.tempKey
-      );
-      if (messageExists) {
-        return prev;
-      }
       const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
       if (message.id && deletedMessageIds.includes(message.id)) {
         return prev;
       }
-      const newMessages = prev.filter(msg => msg.id !== message.id);
-      return [...newMessages, message];
+
+      // Không kiểm tra messageExists, vì mỗi tin nhắn có tempKey duy nhất
+      return [...prev, message];
     });
   }, []);
 
@@ -350,6 +400,8 @@ const Home = () => {
     localStorage.removeItem("userId");
     localStorage.removeItem("accessToken");
     localStorage.removeItem("deletedMessageIds");
+    setUserId(null);
+    setToken(null);
     setSnackbarMessage("Đăng xuất thành công!");
     setSnackbarSeverity("success");
     setOpenSnackbar(true);
@@ -372,6 +424,13 @@ const Home = () => {
       return;
     }
 
+    if (!token) {
+      setSnackbarMessage("Vui lòng đăng nhập để gửi lời mời kết bạn!");
+      setSnackbarSeverity("error");
+      setOpenSnackbar(true);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const result = await sendFriendRequest(friendIdInput, token);
@@ -389,7 +448,7 @@ const Home = () => {
         setOpenSnackbar(true);
       }
     } catch (error) {
-      setSnackbarMessage("Lỗi gửi lời mời kết bạn: " + error.message);
+      setSnackbarMessage("Lỗi gửi lời mời kết bạn: " + (error.response?.data?.message || error.message));
       setSnackbarSeverity("error");
       setOpenSnackbar(true);
     } finally {
@@ -398,6 +457,13 @@ const Home = () => {
   }, [friendIdInput, updateFriendsList, updatePendingRequests, token]);
 
   const handleAcceptFriendRequest = useCallback(async (userId) => {
+    if (!token) {
+      setSnackbarMessage("Vui lòng đăng nhập để chấp nhận lời mời kết bạn!");
+      setSnackbarSeverity("error");
+      setOpenSnackbar(true);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const result = await acceptFriendRequest(userId, token);
@@ -413,13 +479,62 @@ const Home = () => {
         setOpenSnackbar(true);
       }
     } catch (error) {
-      setSnackbarMessage("Lỗi chấp nhận lời mời: " + error.message);
+      setSnackbarMessage("Lỗi chấp nhận lời mời: " + (error.response?.data?.message || error.message));
       setSnackbarSeverity("error");
       setOpenSnackbar(true);
     } finally {
       setIsLoading(false);
     }
   }, [updateFriendsList, updatePendingRequests, token]);
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || selectedMemberIds.length === 0) {
+      setSnackbarMessage('Vui lòng nhập tên nhóm và chọn ít nhất một thành viên!');
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+      return;
+    }
+
+    if (!token) {
+      setSnackbarMessage('Vui lòng đăng nhập để tạo nhóm!');
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+      return;
+    }
+
+    const userId = localStorage.getItem('userId') || '680e6d95a73e35151128bf65';
+    const finalMemberIds = [...new Set([...selectedMemberIds, userId])];
+
+    setIsLoading(true);
+    try {
+      console.log('Creating group with:', { groupName, memberIds: finalMemberIds, token });
+      const result = await createGroup(groupName, finalMemberIds, token);
+      if (result) {
+        setSnackbarMessage('Tạo nhóm thành công!');
+        setSnackbarSeverity('success');
+        setOpenSnackbar(true);
+        setCreateGroupOpen(false);
+        setGroupName('');
+        setSelectedMemberIds([]);
+        await updateGroups();
+      } else {
+        setSnackbarMessage('Tạo nhóm thất bại!');
+        setSnackbarSeverity('error');
+        setOpenSnackbar(true);
+      }
+    } catch (error) {
+      setSnackbarMessage('Lỗi tạo nhóm: ' + (error.response?.data?.message || error.message));
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenCreateGroup = () => {
+    setCreateGroupOpen(true);
+    handleMenuClose();
+  };
 
   const chatWindowProps = useMemo(() => ({
     selectedContact,
@@ -488,7 +603,7 @@ const Home = () => {
               open={Boolean(anchorEl)}
               onClose={handleMenuClose}
             >
-              <MenuItem onClick={handleMenuClose}>Tạo nhóm</MenuItem>
+              <MenuItem onClick={handleOpenCreateGroup}>Tạo nhóm</MenuItem>
               <MenuItem onClick={handleLogout}>Đăng xuất</MenuItem>
             </Menu>
             <Snackbar
@@ -532,6 +647,47 @@ const Home = () => {
             setUserProfile={setUserProfile}
             sx={{ backgroundColor: "#0068ff" }}
           />
+          <Dialog open={createGroupOpen} onClose={() => setCreateGroupOpen(false)}>
+            <DialogTitle>Tạo nhóm mới</DialogTitle>
+            <DialogContent>
+              <TextField
+                fullWidth
+                label="Tên nhóm"
+                variant="outlined"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                sx={{ mt: 2 }}
+              />
+              <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
+                Chọn thành viên
+              </Typography>
+              <List>
+                {contacts
+                  .filter(contact => !contact.isGroup)
+                  .map(contact => (
+                    <ListItem key={contact.id}>
+                      <Checkbox
+                        checked={selectedMemberIds.includes(contact.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedMemberIds(prev => [...prev, contact.id]);
+                          } else {
+                            setSelectedMemberIds(prev => prev.filter(id => id !== contact.id));
+                          }
+                        }}
+                      />
+                      <ListItemText primary={contact.name} />
+                    </ListItem>
+                  ))}
+              </List>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setCreateGroupOpen(false)}>Hủy</Button>
+              <Button onClick={handleCreateGroup} disabled={isLoading}>
+                Tạo
+              </Button>
+            </DialogActions>
+          </Dialog>
         </RootContainer>
       </ThemeProvider>
     </ErrorBoundary>
