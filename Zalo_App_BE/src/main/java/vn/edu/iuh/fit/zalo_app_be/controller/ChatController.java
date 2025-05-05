@@ -18,7 +18,6 @@ import org.springframework.stereotype.Controller;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
-import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 
@@ -80,7 +79,11 @@ public class ChatController {
             }
 
             messageService.recallMessage(messageId, userId);
-            webSocketService.notifyRecall(messageId, userId);
+            if(request.getGroupId() != null) {
+                webSocketService.notifyGroupRecall(messageId, userId, request.getGroupId());
+            } else {
+                webSocketService.notifyRecall(messageId, userId);
+            }
             log.info("Message recalled: messageId={}, userId={}",
                     messageId, userId);
         } catch (Exception e) {
@@ -103,7 +106,11 @@ public class ChatController {
             }
 
             messageService.deleteMessage(messageId, userId);
-            webSocketService.notifyDelete(messageId, userId);
+            if(request.getGroupId() != null) {
+                webSocketService.notifyGroupDelete(messageId, userId, request.getGroupId());
+            } else {
+                webSocketService.notifyDelete(messageId, userId);
+            }
             log.info("Message deleted: messageId={}, userId={}",
                     messageId, userId);
         } catch (Exception e) {
@@ -128,7 +135,11 @@ public class ChatController {
             }
 
             messageService.forwardMessage(messageId, userId, receiverId);
-            webSocketService.sendMessage(new MessageRequest(userId, receiverId, request.getContent(), groupId, MessageType.FORWARD));
+            if(groupId != null) {
+                webSocketService.sendGroupMessage(new MessageRequest(userId, receiverId, request.getContent(), groupId, MessageType.FORWARD));
+            }else {
+                webSocketService.sendMessage(new MessageRequest(userId, receiverId, request.getContent(), null  , MessageType.FORWARD));
+            }
             log.info("Message forwarded: messageId={}, userId={}, receiverId={}, groupId={}",
                     messageId, userId, receiverId, groupId);
         } catch (Exception e) {

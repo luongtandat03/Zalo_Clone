@@ -19,7 +19,6 @@ import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.MessageSendException;
 import vn.edu.iuh.fit.zalo_app_be.model.Group;
-import vn.edu.iuh.fit.zalo_app_be.model.Message;
 import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
@@ -94,10 +93,54 @@ public class WebSocketServiceImpl implements WebSocketService {
     }
 
     @Override
+    public void notifyGroupRecall(String messageId, String userId, String groupId) {
+        try{
+            Optional<Group> group = groupRepository.findById(groupId);
+            if (group.isEmpty()) {
+                log.error("Group not found: {}", groupId);
+                throw new MessageSendException("Group not found");
+            }
+            MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+            for (String memberId : group.get().getMemberIds()) {
+                if (!memberId.equals(userId)) {
+                    template.convertAndSendToUser(memberId, "/queue/recall", messageResponse);
+                    log.info("Group recall notification sent from {} to {}: {}", userId, memberId, messageResponse.getContent());
+                }
+            }
+            log.info("Group recall notification sent from {} to group {}: {}", userId, groupId, messageResponse.getContent());
+        }catch (Exception e){
+            log.error("Error sending group recall notification: {}", e.getMessage());
+            throw new MessageSendException("Error sending group recall notification");
+        }
+    }
+
+    @Override
     public void notifyDelete(String messageId, String userId) {
         MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
         template.convertAndSendToUser(userId, "/queue/delete", messageResponse);
         log.info("Delete notification sent for message {} to user {}", messageId, userId);
+    }
+
+    @Override
+    public void notifyGroupDelete(String messageId, String userId,String groupId) {
+        try{
+            Optional<Group> group = groupRepository.findById(groupId);
+            if (group.isEmpty()) {
+                log.error("Group not found: {}", groupId);
+                throw new MessageSendException("Group not found");
+            }
+            MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+            for (String memberId : group.get().getMemberIds()) {
+                if (!memberId.equals(userId)) {
+                    template.convertAndSendToUser(memberId, "/queue/delete", messageResponse);
+                    log.info("Delete notification sent from {} to {}: {}", userId, memberId, messageResponse.getContent());
+                }
+            }
+            log.info("Delete notification sent from {} to group {}: {}", userId, groupId, messageResponse.getContent());
+        }catch (Exception e){
+            log.error("Error sending group delete notification: {}", e.getMessage());
+            throw new MessageSendException("Error sending group delete notification");
+        }
     }
 
     @Override

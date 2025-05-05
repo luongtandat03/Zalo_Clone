@@ -23,7 +23,11 @@ public interface WebSocketService {
 
     void notifyRecall(String messageId, String userId);
 
+    void notifyGroupRecall(String messageId, String userId,String groupId);
+
     void notifyDelete(String messageId, String userId);
+
+    void notifyGroupDelete(String messageId, String userId,String groupId);
 
     void notifyRead(String messageId, String userId);
 
