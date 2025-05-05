@@ -12,6 +12,7 @@ package vn.edu.iuh.fit.zalo_app_be.service;
  */
 
 
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.iuh.fit.zalo_app_be.common.Roles;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.GroupRequest;
@@ -19,12 +20,13 @@ import vn.edu.iuh.fit.zalo_app_be.controller.response.GroupResponse;
 
 import java.util.List;
 
+@Service
 public interface GroupService {
     GroupResponse createGroup(GroupRequest request);
 
-    GroupResponse addMember(String groupId, List<String> userIds);
+    GroupResponse addMember(String groupId, List<String> memberIds);
 
-    GroupResponse removeMember(String groupId, String userId);
+    GroupResponse removeMember(String groupId, String memberId);
 
     void dissolveGroup(String groupId);
 
@@ -35,4 +37,6 @@ public interface GroupService {
    GroupResponse getUserInGroup(String groupId);
 
    GroupResponse updateGroup(String groupId, GroupRequest request, MultipartFile file);
+
+   GroupResponse setAdmin(String groupId, String memberIds, boolean isAdmin, String userId);
 }
