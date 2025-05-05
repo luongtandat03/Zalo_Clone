@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, Component } from "react";
 import { ThemeProvider, styled, createTheme } from "@mui/material/styles";
-import { CssBaseline, TextField } from '@mui/material';  
+import { CssBaseline, TextField } from '@mui/material';
 import { Box, Typography, IconButton, Menu, MenuItem, Snackbar, Alert } from "@mui/material";
 import { BiUserPlus, BiGroup, BiDotsVerticalRounded } from "react-icons/bi";
 import { useNavigate } from "react-router-dom";
@@ -96,7 +96,9 @@ const Home = () => {
     console.log('Home mounted with userId:', userId);
     if (profileOpen) {
       fetchUserProfile(token).then((data) => {
-        if (data) setUserProfile(data);
+        if (data) {
+          setUserProfile(data);
+        }
       });
     }
     return () => {
@@ -105,7 +107,9 @@ const Home = () => {
   }, [profileOpen, token]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      return;
+    }
 
     connectWebSocket(
       token,
@@ -113,13 +117,11 @@ const Home = () => {
       (receivedMessage) => {
         console.log('Received message in Home:', receivedMessage);
         setMessages((prev) => {
-          // Kiểm tra tin nhắn trùng lặp dựa trên id
           const messageExistsById = prev.some(msg => msg.id === receivedMessage.id);
           if (messageExistsById) {
-            return prev; // Nếu tin nhắn đã tồn tại, không thêm lại
+            return prev;
           }
 
-          // Kiểm tra tin nhắn tạm thời dựa trên nội dung, senderId, và receiverId
           const messageExistsByContent = prev.find(msg =>
             msg.tempKey &&
             msg.content === receivedMessage.content &&
@@ -139,7 +141,6 @@ const Home = () => {
             return prev;
           }
 
-          // Xử lý an toàn createAt
           let createAt = receivedMessage.createdAt || receivedMessage.createAt;
           let parsedDate = new Date(createAt);
           if (isNaN(parsedDate.getTime())) {
@@ -186,16 +187,14 @@ const Home = () => {
           )
         );
       }
-    )
-      .then(() => {
-        console.log('STOMP connected in Home');
-      })
-      .catch((error) => {
-        console.error('Failed to connect STOMP in Home:', error);
-        setSnackbarMessage(`Không thể kết nối WebSocket: ${error.message}`);
-        setSnackbarSeverity("error");
-        setOpenSnackbar(true);
-      });
+    ).then(() => {
+      console.log('STOMP connected in Home');
+    }).catch((error) => {
+      console.error('Failed to connect STOMP in Home:', error);
+      setSnackbarMessage(`Không thể kết nối WebSocket: ${error.message}`);
+      setSnackbarSeverity("error");
+      setOpenSnackbar(true);
+    });
 
     return () => {
       disconnectWebSocket();
@@ -211,7 +210,7 @@ const Home = () => {
           id: friend.id,
           name: friend.name,
           username: friend.name,
-          avatar: friend.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
+          avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
           status: friend.status || "offline",
           lastMessage: friend.lastMessage || "",
           unreadCount: friend.unreadCount || 0,
@@ -239,7 +238,7 @@ const Home = () => {
         setPendingRequests(data.map(request => ({
           id: request.id,
           name: request.name,
-          avatar: request.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
+          avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
         })));
       } else {
         setSnackbarMessage("Không thể tải danh sách lời mời!");
@@ -306,18 +305,24 @@ const Home = () => {
   const handleSendMessage = useCallback((message) => {
     console.log('Sending message:', message);
     setMessages((prev) => {
-      // Kiểm tra tin nhắn trùng lặp dựa trên tempKey
+      if (!message.content && !message.type) {
+        return prev.map((msg) =>
+          msg.id === message.id
+            ? { ...msg, ...message }
+            : msg
+        );
+      }
+
       const messageExists = prev.some(msg => 
         msg.tempKey && msg.tempKey === message.tempKey
       );
       if (messageExists) {
-        return prev; // Nếu đã tồn tại, không thêm lại
+        return prev;
       }
       const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
       if (message.id && deletedMessageIds.includes(message.id)) {
         return prev;
       }
-      // Kiểm tra tin nhắn trùng lặp dựa trên id
       const newMessages = prev.filter(msg => msg.id !== message.id);
       return [...newMessages, message];
     });
@@ -424,7 +429,7 @@ const Home = () => {
     onSendMessage: handleSendMessage,
     onProfileOpen: handleProfileOpen,
     userId,
-    contacts
+    contacts,
   }), [selectedContact, messages, messageInput, handleSendMessage, handleProfileOpen, userId, contacts]);
 
   return (
@@ -439,7 +444,6 @@ const Home = () => {
             onProfileOpen={() => handleProfileOpen({ id: userId, name: userProfile?.name || "User" })}
             onLogout={handleLogout}
           />
-
           <SidebarContainer>
             <Box p={2} display="flex" flexDirection="column">
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -447,8 +451,8 @@ const Home = () => {
                   {currentView === "messages"
                     ? "Zalo Mess"
                     : currentView === "contacts"
-                    ? "Contacts"
-                    : "Settings"}
+                      ? "Contacts"
+                      : "Settings"}
                 </Typography>
                 <Box>
                   <IconButton onClick={handleToggleAddFriendInput} sx={{ mr: 1 }} disabled={isLoading}>
@@ -462,7 +466,6 @@ const Home = () => {
                   </IconButton>
                 </Box>
               </Box>
-
               {showAddFriendInput && (
                 <Box mt={2} display="flex" alignItems="center" gap={1}>
                   <TextField
@@ -480,7 +483,6 @@ const Home = () => {
                 </Box>
               )}
             </Box>
-
             <Menu
               anchorEl={anchorEl}
               open={Boolean(anchorEl)}
@@ -489,7 +491,6 @@ const Home = () => {
               <MenuItem onClick={handleMenuClose}>Tạo nhóm</MenuItem>
               <MenuItem onClick={handleLogout}>Đăng xuất</MenuItem>
             </Menu>
-
             <Snackbar
               open={openSnackbar}
               autoHideDuration={2000}
@@ -500,7 +501,6 @@ const Home = () => {
                 {snackbarMessage}
               </Alert>
             </Snackbar>
-
             {currentView === "messages" && (
               <ContactList
                 contacts={contacts}
@@ -523,9 +523,7 @@ const Home = () => {
             )}
             {currentView === "settings" && <SettingsPanel />}
           </SidebarContainer>
-
           <ChatWindow {...chatWindowProps} />
-
           <ProfileModal
             open={profileOpen}
             onClose={handleProfileClose}

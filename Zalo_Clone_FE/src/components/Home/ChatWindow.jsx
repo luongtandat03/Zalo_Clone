@@ -32,7 +32,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
   const [localMessages, setLocalMessages] = useState(messages);
   const [isSending, setIsSending] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
-  const [forwardMessage, setForwardMessage] = useState(null);
+  const [messageToForward, setMessageToForward] = useState(null);
   const token = localStorage.getItem('accessToken');
   const fileInputRef = useRef(null);
 
@@ -77,7 +77,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           deletedByUsers: [],
           isRead: false,
         };
-        // Không thêm trực tiếp vào localMessages, chỉ gửi lên Home.jsx để xử lý
+        // Không thêm trực tiếp vào localMessages, chỉ gửi lên Home.jsx
         onMessageInputChange({ target: { value: '' } });
         onSendMessage(newMessage);
         toast.success('Tin nhắn đã được gửi!');
@@ -161,10 +161,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
               : msg
           )
         );
-        onSendMessage({ 
-          id: message.id,
-          recalled: true 
-        });
+        // Không gọi onSendMessage để tránh thêm tin nhắn mới
         toast.success('Tin nhắn đã được thu hồi!');
       } else {
         toast.error('Không thể thu hồi tin nhắn: WebSocket không hoạt động');
@@ -204,10 +201,6 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
               : msg
           )
         );
-        onSendMessage({ 
-          id: message.id,
-          deletedByUsers: [...(message.deletedByUsers || []), userId] 
-        });
         toast.success('Tin nhắn đã được xóa!');
       } else {
         toast.error('Không thể xóa tin nhắn: WebSocket không hoạt động');
@@ -221,7 +214,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
   };
 
   const handleOpenForwardDialog = (message) => {
-    setForwardMessage(message);
+    setMessageToForward(message);
     setForwardDialogOpen(true);
   };
 
@@ -233,7 +226,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
     try {
-      const identifier = forwardMessage.id;
+      const identifier = messageToForward?.id;
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
@@ -242,17 +235,17 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         userId,
         contact.id,
         null,
-        forwardMessage.content,
+        messageToForward.content,
         token
       );
       if (success) {
-        const tempKey = `${Date.now()}-${forwardMessage.content}`; // Định danh tạm thời
+        const tempKey = `${Date.now()}-${messageToForward.content}`; // Định danh tạm thời
         const newMessage = {
           senderId: userId,
           receiverId: contact.id,
-          content: forwardMessage.content,
+          content: messageToForward.content,
           type: 'FORWARD',
-          forwardedFrom: { messageId: forwardMessage.id, senderId: userId },
+          forwardedFrom: { messageId: messageToForward.id, senderId: userId },
           tempKey: tempKey,
           createAt: new Date().toISOString(),
           recalled: false,
@@ -266,12 +259,12 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         toast.error('Không thể chuyển tiếp tin nhắn: WebSocket không hoạt động');
       }
     } catch (error) {
-      console.error('Error forwarding message:', error);
+      console.error('Lỗi chuyển tiếp tin nhắn:', error);
       toast.error(`Lỗi chuyển tiếp tin nhắn: ${error.message}`);
     } finally {
       setIsSending(false);
       setForwardDialogOpen(false);
-      setForwardMessage(null);
+      setMessageToForward(null);
     }
   };
 
@@ -394,7 +387,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         <DialogContent>
           <List>
             {contacts.map((contact) => (
-              <ListItem button key={contact.id} onClick={() => handleForwardMessage(contact)}>
+              <ListItem key={contact.id} onClick={() => handleForwardMessage(contact)}>
                 <ListItemAvatar>
                   <Avatar src={contact.avatar} />
                 </ListItemAvatar>
