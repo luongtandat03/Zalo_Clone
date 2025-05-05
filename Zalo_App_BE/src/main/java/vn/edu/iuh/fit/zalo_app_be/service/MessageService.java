@@ -34,5 +34,7 @@ public interface MessageService {
 
     void forwardMessage(String messageId, String userId, String receiverId);
 
+    void readMessage(String messageId, String receiverId);
+
     MessageResponse convertToMessageResponse(Message message);
 }

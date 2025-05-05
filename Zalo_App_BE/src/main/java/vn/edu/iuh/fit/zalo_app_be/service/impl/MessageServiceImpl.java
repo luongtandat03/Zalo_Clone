@@ -61,11 +61,12 @@ public class MessageServiceImpl implements MessageService {
             message.setGroupId(request.getGroupId());
             message.setContent(request.getContent());
             MessageType type = request.getType() != null ? request.getType() : MessageType.TEXT;
-            if (type == MessageType.GIF || type == MessageType.STICKER) {
+            if (type == MessageType.GIF || type == MessageType.STICKER || type == MessageType.EMOJI) {
                 if (!isValidUrl(request.getContent())) {
                     throw new ResourceNotFoundException("URL is not valid");
                 }
             }
+
             message.setType(type);
             message.setImageUrls(request.getImageUrls());
             message.setVideoInfos(request.getVideoInfos());
@@ -263,6 +264,23 @@ public class MessageServiceImpl implements MessageService {
 
         messageRepository.save(message);
         log.info("Message forwarded: {} for sender: {}", messageId, userId);
+    }
+
+    @Override
+    public void readMessage(String messageId,String receiverId) {
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if( messageOptional.isPresent()) {
+            Message message = messageOptional.get();
+            if (message.getReceiverId().equals(receiverId)) {
+                message.setRead(true);
+                messageRepository.save(message);
+                log.info("Message read: {} for sender: {}", messageId, receiverId);
+            } else {
+                throw new ResourceNotFoundException("Only receiver have permission to read this message");
+            }
+        } else {
+            throw new ResourceNotFoundException("Message not found");
+        }
     }
 
     private void validateUser(String senderId, String receiverId) {

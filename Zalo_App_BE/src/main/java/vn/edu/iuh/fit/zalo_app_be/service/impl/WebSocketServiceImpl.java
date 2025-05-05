@@ -100,9 +100,10 @@ public class WebSocketServiceImpl implements WebSocketService {
     }
 
     @Override
-    public void notifyForward(String messageId, String userId, String receiverId) {
-        MessageResponse messageResponse = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
-        template.convertAndSendToUser(receiverId, "/queue/forward", messageResponse);
+    public void notifyRead(String messageId, String userId) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/read", response);
+        log.info("Read notification sent for message {} to user {}", messageId, userId);
     }
 
 

@@ -139,4 +139,29 @@ public class ChatController {
             throw e;
         }
     }
+
+    @MessageMapping("/chat.read")
+    public void readMessage(@Payload MessageRequest request) {
+        String messageId = request.getId();
+        String senderId = request.getSenderId();
+        String receiverId = request.getReceiverId();
+
+
+        log.debug("Processing read message request: messageId={}, userId={}",
+                messageId, receiverId);
+        try {
+            if (messageId == null || receiverId == null) {
+                throw new RuntimeException("Invalid read message request: missing messageId or userId");
+            }
+
+            messageService.readMessage(messageId, receiverId);
+            webSocketService.notifyRead(messageId, senderId);
+            log.info("Message read: messageId={}, userId={}",
+                    messageId, receiverId);
+        } catch (Exception e) {
+            log.error("Error processing read message: messageId={}, userId={}, error={}",
+                    messageId, receiverId, e.getMessage());
+            throw e;
+        }
+    }
 }

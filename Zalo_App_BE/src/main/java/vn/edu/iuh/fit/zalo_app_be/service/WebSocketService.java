@@ -25,5 +25,5 @@ public interface WebSocketService {
 
     void notifyDelete(String messageId, String userId);
 
-    void notifyForward(String messageId, String userId, String receiverId);
+    void notifyRead(String messageId, String userId);
 }
