@@ -6,6 +6,7 @@ import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage }
 import { fetchGroupMembers } from '../../api/groupApi';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import SearchBar from '../../components/SearchBar'; // Import SearchBar để tìm kiếm tin nhắn
 
 const ChatContainer = styled(Box)(({ theme }) => ({
   flex: 1,
@@ -32,6 +33,7 @@ const MessageBubble = styled(Paper)(({ isSender, theme }) => ({
 
 const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputChange, onSendMessage, onProfileOpen, userId, contacts, token }) => {
   const [localMessages, setLocalMessages] = useState(messages);
+  const [filteredMessages, setFilteredMessages] = useState(messages); // Tin nhắn đã lọc
   const [isSending, setIsSending] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
@@ -47,15 +49,10 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       return acc;
     }, []);
     setLocalMessages(uniqueMessages);
+    setFilteredMessages(uniqueMessages); // Ban đầu hiển thị tất cả tin nhắn
   }, [messages]);
 
   useEffect(() => {
-    if (!token) {
-      // Nếu không có token, không gọi API
-      setGroupMembers([]);
-      return;
-    }
-
     if (selectedContact?.isGroup) {
       fetchGroupMembers(selectedContact.id, token)
         .then(members => {
@@ -63,12 +60,24 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         })
         .catch(error => {
           console.error('Error fetching group members:', error);
-          setGroupMembers([]);
         });
     } else {
       setGroupMembers([]);
     }
   }, [selectedContact, token]);
+
+  // Hàm tìm kiếm tin nhắn
+  const handleSearchMessages = (searchTerm) => {
+    if (!searchTerm.trim()) {
+      setFilteredMessages(localMessages);
+      return;
+    }
+
+    const filtered = localMessages.filter((msg) =>
+      msg.content?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredMessages(filtered);
+  };
 
   const handleSendMessage = () => {
     if (!messageInput.trim()) return;
@@ -344,8 +353,14 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         )}
       </Box>
 
+      {/* Thanh tìm kiếm tin nhắn */}
+      <SearchBar
+        placeholder="Tìm kiếm tin nhắn..."
+        onSearch={handleSearchMessages}
+      />
+
       <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: 'background.default', position: 'relative' }}>
-        {localMessages.map((message, index) => (
+        {filteredMessages.map((message, index) => (
           <MessageContainer 
             key={message.id ? `${message.id}-${index}` : (message.tempKey ? `${message.tempKey}-${index}` : `${message.createAt}-${message.senderId}-${index}`)} 
             isSender={message.senderId === userId}

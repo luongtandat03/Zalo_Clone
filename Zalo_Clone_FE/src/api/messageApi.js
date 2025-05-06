@@ -51,6 +51,32 @@ export const getGroupChatHistory = async (groupId, token) => {
   }
 };
 
+// Hàm lấy danh sách tin nhắn đã ghim
+export const getPinnedMessages = async (otherUserId, groupId, token) => {
+  try {
+    const params = new URLSearchParams();
+    params.append('otherUserId', otherUserId);
+    if (groupId) {
+      params.append('groupId', groupId);
+    }
+
+    const response = await axios.get(`${API_BASE_URL}/all-pinned-messages`, {
+      params,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data.map(msg => ({
+      ...msg,
+      id: msg._id || msg.id,
+      _id: undefined,
+    }));
+  } catch (error) {
+    console.error('Error fetching pinned messages:', error);
+    throw error;
+  }
+};
+
 // Hàm upload file
 export const uploadFile = async (files, receiverId, token, groupId = null, replyToMessageId = null) => {
   try {
@@ -227,6 +253,50 @@ export function sendMessage(destination, message, token) {
     return true;
   } catch (error) {
     console.error('Error sending message:', error);
+    return false;
+  }
+}
+
+// Hàm ghim tin nhắn
+export function pinMessage(identifier, userId, token) {
+  if (!stompClient || !stompClient.connected) {
+    console.error('Cannot pin message: STOMP client is not connected');
+    return false;
+  }
+
+  try {
+    const message = { id: identifier, senderId: userId };
+    stompClient.publish({
+      destination: '/app/chat.pin',
+      body: JSON.stringify(message),
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log('Pinned message:', identifier);
+    return true;
+  } catch (error) {
+    console.error('Error pinning message:', error);
+    return false;
+  }
+}
+
+// Hàm bỏ ghim tin nhắn
+export function unpinMessage(identifier, userId, token) {
+  if (!stompClient || !stompClient.connected) {
+    console.error('Cannot unpin message: STOMP client is not connected');
+    return false;
+  }
+
+  try {
+    const message = { id: identifier, senderId: userId };
+    stompClient.publish({
+      destination: '/app/chat.unpin',
+      body: JSON.stringify(message),
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log('Unpinned message:', identifier);
+    return true;
+  } catch (error) {
+    console.error('Error unpinning message:', error);
     return false;
   }
 }

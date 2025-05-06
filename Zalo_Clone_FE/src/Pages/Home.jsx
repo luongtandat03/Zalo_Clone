@@ -97,21 +97,27 @@ const Home = () => {
   const [groupName, setGroupName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
 
-  // Đồng bộ token với localStorage
   useEffect(() => {
-    const storedToken = localStorage.getItem('accessToken');
-    if (storedToken !== token) {
-      setToken(storedToken);
+    console.log('Home mounted with userId:', userId);
+    if (profileOpen) {
+      fetchUserProfile(token).then((data) => {
+        if (data) {
+          setUserProfile(data);
+        }
+      });
     }
-  }, [token]);
+    return () => {
+      console.log('Home unmounting');
+    };
+  }, [profileOpen, token]);
 
-  // Kiểm tra token và chuyển hướng ngay lập tức nếu không có token
   useEffect(() => {
+    // Kiểm tra token và chuyển hướng nếu không có token
     if (!token) {
       setSnackbarMessage('Vui lòng đăng nhập để sử dụng chức năng!');
       setSnackbarSeverity('error');
       setOpenSnackbar(true);
-      navigate("/"); // Chuyển hướng ngay lập tức về trang đăng nhập
+      navigate("/"); // Chuyển hướng về trang đăng nhập
       return;
     }
 
@@ -216,24 +222,9 @@ const Home = () => {
       isMounted = false;
       disconnectWebSocket();
     };
-  }, [token, userId, navigate]); // Thêm navigate vào dependencies
-
-  useEffect(() => {
-    console.log('Home mounted with userId:', userId);
-    if (profileOpen) {
-      fetchUserProfile(token).then((data) => {
-        if (data) {
-          setUserProfile(data);
-        }
-      });
-    }
-    return () => {
-      console.log('Home unmounting');
-    };
-  }, [profileOpen, token]);
+  }, [token, userId, navigate]);
 
   const updateGroups = useCallback(async () => {
-    if (!token) return []; // Không gọi API nếu không có token
     try {
       const groups = await fetchUserGroups(userId, token);
       const groupContacts = groups.map(group => ({
@@ -258,7 +249,6 @@ const Home = () => {
   }, [userId, token]);
 
   const updateFriendsList = useCallback(async () => {
-    if (!token) return; // Không gọi API nếu không có token
     setIsLoading(true);
     try {
       const data = await fetchFriendsList(token);
@@ -291,7 +281,6 @@ const Home = () => {
   }, [token]);
 
   const updatePendingRequests = useCallback(async () => {
-    if (!token) return; // Không gọi API nếu không có token
     setIsLoading(true);
     try {
       const data = await fetchPendingFriendRequests(token);
@@ -419,7 +408,9 @@ const Home = () => {
     setSnackbarSeverity("success");
     setOpenSnackbar(true);
     handleMenuClose();
-    navigate("/"); // Chuyển hướng ngay lập tức về trang đăng nhập
+    setTimeout(() => {
+      navigate("/");
+    }, 1000);
   }, [navigate]);
 
   const handleToggleAddFriendInput = useCallback(() => {
@@ -556,7 +547,7 @@ const Home = () => {
     onProfileOpen: handleProfileOpen,
     userId,
     contacts,
-    token, // Truyền token để ChatWindow sử dụng
+    token,
   }), [selectedContact, messages, messageInput, handleSendMessage, handleProfileOpen, userId, contacts, token]);
 
   return (
@@ -650,15 +641,7 @@ const Home = () => {
             )}
             {currentView === "settings" && <SettingsPanel />}
           </SidebarContainer>
-          {token ? (
-            <ChatWindow {...chatWindowProps} />
-          ) : (
-            <Box display="flex" alignItems="center" justifyContent="center" height="100%">
-              <Typography variant="h6" color="text.secondary">
-                Vui lòng đăng nhập để sử dụng chức năng chat
-              </Typography>
-            </Box>
-          )}
+          <ChatWindow {...chatWindowProps} />
           <ProfileModal
             open={profileOpen}
             onClose={handleProfileClose}
