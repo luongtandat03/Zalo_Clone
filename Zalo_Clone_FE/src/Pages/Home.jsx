@@ -73,6 +73,7 @@ const SidebarContainer = styled(Box)(({ theme }) => ({
 
 const Home = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { token: navToken, userId: navUserId } = location.state || {};
   const [userId, setUserId] = useState(navUserId || localStorage.getItem('userId') || '680e6d95a73e35151128bf65');
   const [token, setToken] = useState(navToken || localStorage.getItem('accessToken'));
@@ -95,51 +96,22 @@ const Home = () => {
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
-  const navigate = useNavigate();
 
+  // Đồng bộ token với localStorage
   useEffect(() => {
-    console.log('Home mounted with userId:', userId);
-    if (profileOpen) {
-      fetchUserProfile(token).then((data) => {
-        if (data) {
-          setUserProfile(data);
-        }
-      });
+    const storedToken = localStorage.getItem('accessToken');
+    if (storedToken !== token) {
+      setToken(storedToken);
     }
-    return () => {
-      console.log('Home unmounting');
-    };
-  }, [profileOpen, token]);
+  }, [token]);
 
-  const updateGroups = useCallback(async () => {
-    try {
-      const groups = await fetchUserGroups(userId, token);
-      const groupContacts = groups.map(group => ({
-        id: group.id,
-        name: group.name,
-        isGroup: true,
-        avatar: 'https://example.com/group-icon.png',
-        status: 'group',
-        lastMessage: group.lastMessage || '',
-        timestamp: group.timestamp || 'Yesterday',
-      }));
-      setContacts(prev => [...prev.filter(c => !c.isGroup), ...groupContacts]);
-      const groupIds = groups.map(group => group.id).filter(id => id);
-      console.log('Group IDs for subscription:', groupIds);
-      return groupIds;
-    } catch (error) {
-      setSnackbarMessage('Lỗi tải danh sách nhóm: ' + (error.response?.data?.message || error.message));
-      setSnackbarSeverity('error');
-      setOpenSnackbar(true);
-      return [];
-    }
-  }, [userId, token]);
-
+  // Kiểm tra token và chuyển hướng ngay lập tức nếu không có token
   useEffect(() => {
     if (!token) {
       setSnackbarMessage('Vui lòng đăng nhập để sử dụng chức năng!');
       setSnackbarSeverity('error');
       setOpenSnackbar(true);
+      navigate("/"); // Chuyển hướng ngay lập tức về trang đăng nhập
       return;
     }
 
@@ -244,9 +216,49 @@ const Home = () => {
       isMounted = false;
       disconnectWebSocket();
     };
-  }, [token, userId]);
+  }, [token, userId, navigate]); // Thêm navigate vào dependencies
+
+  useEffect(() => {
+    console.log('Home mounted with userId:', userId);
+    if (profileOpen) {
+      fetchUserProfile(token).then((data) => {
+        if (data) {
+          setUserProfile(data);
+        }
+      });
+    }
+    return () => {
+      console.log('Home unmounting');
+    };
+  }, [profileOpen, token]);
+
+  const updateGroups = useCallback(async () => {
+    if (!token) return []; // Không gọi API nếu không có token
+    try {
+      const groups = await fetchUserGroups(userId, token);
+      const groupContacts = groups.map(group => ({
+        id: group.id,
+        name: group.name,
+        isGroup: true,
+        avatar: 'https://example.com/group-icon.png',
+        status: 'group',
+        lastMessage: group.lastMessage || '',
+        timestamp: group.timestamp || 'Yesterday',
+      }));
+      setContacts(prev => [...prev.filter(c => !c.isGroup), ...groupContacts]);
+      const groupIds = groups.map(group => group.id).filter(id => id);
+      console.log('Group IDs for subscription:', groupIds);
+      return groupIds;
+    } catch (error) {
+      setSnackbarMessage('Lỗi tải danh sách nhóm: ' + (error.response?.data?.message || error.message));
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+      return [];
+    }
+  }, [userId, token]);
 
   const updateFriendsList = useCallback(async () => {
+    if (!token) return; // Không gọi API nếu không có token
     setIsLoading(true);
     try {
       const data = await fetchFriendsList(token);
@@ -279,6 +291,7 @@ const Home = () => {
   }, [token]);
 
   const updatePendingRequests = useCallback(async () => {
+    if (!token) return; // Không gọi API nếu không có token
     setIsLoading(true);
     try {
       const data = await fetchPendingFriendRequests(token);
@@ -406,9 +419,7 @@ const Home = () => {
     setSnackbarSeverity("success");
     setOpenSnackbar(true);
     handleMenuClose();
-    setTimeout(() => {
-      navigate("/");
-    }, 1000);
+    navigate("/"); // Chuyển hướng ngay lập tức về trang đăng nhập
   }, [navigate]);
 
   const handleToggleAddFriendInput = useCallback(() => {
@@ -545,7 +556,8 @@ const Home = () => {
     onProfileOpen: handleProfileOpen,
     userId,
     contacts,
-  }), [selectedContact, messages, messageInput, handleSendMessage, handleProfileOpen, userId, contacts]);
+    token, // Truyền token để ChatWindow sử dụng
+  }), [selectedContact, messages, messageInput, handleSendMessage, handleProfileOpen, userId, contacts, token]);
 
   return (
     <ErrorBoundary>
@@ -638,7 +650,15 @@ const Home = () => {
             )}
             {currentView === "settings" && <SettingsPanel />}
           </SidebarContainer>
-          <ChatWindow {...chatWindowProps} />
+          {token ? (
+            <ChatWindow {...chatWindowProps} />
+          ) : (
+            <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+              <Typography variant="h6" color="text.secondary">
+                Vui lòng đăng nhập để sử dụng chức năng chat
+              </Typography>
+            </Box>
+          )}
           <ProfileModal
             open={profileOpen}
             onClose={handleProfileClose}

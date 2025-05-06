@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText } from '@mui/material';
 import { BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup } from 'react-icons/bi';
+import Picker from 'emoji-picker-react'; // Thư viện emoji picker
 import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage } from '../../api/messageApi';
 import { fetchGroupMembers } from '../../api/groupApi';
 import { toast, ToastContainer } from 'react-toastify';
@@ -29,13 +30,13 @@ const MessageBubble = styled(Paper)(({ isSender, theme }) => ({
   borderRadius: 20,
 }));
 
-const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputChange, onSendMessage, onProfileOpen, userId, contacts }) => {
+const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputChange, onSendMessage, onProfileOpen, userId, contacts, token }) => {
   const [localMessages, setLocalMessages] = useState(messages);
   const [isSending, setIsSending] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
   const [groupMembers, setGroupMembers] = useState([]);
-  const token = localStorage.getItem('accessToken');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Trạng thái hiển thị bảng chọn emoji
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -49,6 +50,12 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
   }, [messages]);
 
   useEffect(() => {
+    if (!token) {
+      // Nếu không có token, không gọi API
+      setGroupMembers([]);
+      return;
+    }
+
     if (selectedContact?.isGroup) {
       fetchGroupMembers(selectedContact.id, token)
         .then(members => {
@@ -56,6 +63,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         })
         .catch(error => {
           console.error('Error fetching group members:', error);
+          setGroupMembers([]);
         });
     } else {
       setGroupMembers([]);
@@ -71,7 +79,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
 
-    const tempKey = `${Date.now()}-${messageInput}`;
+    const tempKey = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`; // Tạo tempKey duy nhất
     const message = {
       senderId: userId,
       [selectedContact.isGroup ? 'groupId' : 'receiverId']: selectedContact.id,
@@ -102,7 +110,14 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       toast.error(`Lỗi gửi tin nhắn: ${error.message}`);
     } finally {
       setIsSending(false);
+      setShowEmojiPicker(false); // Ẩn bảng chọn emoji sau khi gửi
     }
+  };
+
+  // Xử lý khi người dùng chọn emoji
+  const onEmojiClick = (emojiObject) => {
+    const newMessageInput = messageInput + emojiObject.emoji;
+    onMessageInputChange({ target: { value: newMessageInput } });
   };
 
   const handleFileUpload = async (event) => {
@@ -329,7 +344,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         )}
       </Box>
 
-      <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: 'background.default' }}>
+      <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: 'background.default', position: 'relative' }}>
         {localMessages.map((message, index) => (
           <MessageContainer 
             key={message.id ? `${message.id}-${index}` : (message.tempKey ? `${message.tempKey}-${index}` : `${message.createAt}-${message.senderId}-${index}`)} 
@@ -412,9 +427,16 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         ))}
       </Box>
 
+      {/* Bảng chọn emoji */}
+      {showEmojiPicker && (
+        <Box sx={{ position: 'absolute', bottom: 60, left: 10, zIndex: 1000 }}>
+          <Picker onEmojiClick={onEmojiClick} />
+        </Box>
+      )}
+
       <Box p={2} borderTop={1} borderColor="divider" sx={{ bgcolor: 'background.paper' }}>
         <Box display="flex" alignItems="center" gap={1}>
-          <IconButton size="small">
+          <IconButton size="small" onClick={() => setShowEmojiPicker(!showEmojiPicker)} color="primary">
             <BiSmile />
           </IconButton>
           <IconButton size="small" component="label">
