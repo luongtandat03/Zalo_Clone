@@ -1,33 +1,71 @@
-import React, { useState } from 'react';
-import { List, ListItem, ListItemText, ListItemAvatar, Avatar, Typography, Box, Button } from '@mui/material';
-import SearchBar from '../../components/SearchBar'; // Import SearchBar để tìm kiếm liên hệ
+import React from "react";
+import { List, ListItem, ListItemAvatar, ListItemText, Avatar, Badge, TextField, InputAdornment, Typography, Button } from "@mui/material";
+import { BiSearch, BiGroup } from "react-icons/bi";
 
 const ContactList = ({ contacts, selectedContact, onContactSelect, pendingRequests, onAcceptFriendRequest, isLoading }) => {
-  const [filteredContacts, setFilteredContacts] = useState(contacts);
+  const [searchQuery, setSearchQuery] = React.useState("");
 
-  // Hàm tìm kiếm liên hệ
-  const handleSearchContacts = (searchTerm) => {
-    if (!searchTerm.trim()) {
-      setFilteredContacts(contacts);
-      return;
-    }
-
-    const filtered = contacts.filter((contact) =>
-      contact.name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredContacts(filtered);
-  };
+  const filteredContacts = contacts.filter((contact) =>
+    contact.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <Box sx={{ flex: 1, overflowY: 'auto' }}>
-      <Typography variant="subtitle1" sx={{ p: 2, fontWeight: 'bold' }}>
-        Danh sách liên hệ
-      </Typography>
-      <SearchBar
-        placeholder="Tìm kiếm liên hệ..."
-        onSearch={handleSearchContacts}
+    <>
+      <TextField
+        fullWidth
+        placeholder="Tìm kiếm"
+        variant="outlined"
+        size="small"
+        sx={{ mb: 2 }}
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <BiSearch />
+            </InputAdornment>
+          ),
+        }}
       />
-      <List>
+
+      {pendingRequests && pendingRequests.length > 0 && (
+        <>
+          <Typography variant="subtitle1" sx={{ px: 2, mb: 1, fontWeight: "bold" }}>
+            Lời mời kết bạn ({pendingRequests.length})
+          </Typography>
+          <List sx={{ overflow: "auto", mb: 2 }}>
+            {pendingRequests.map((request) => (
+              <ListItem
+                key={request.id}
+                secondaryAction={
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    onClick={() => onAcceptFriendRequest(request.id)}
+                    disabled={isLoading}
+                  >
+                    Chấp nhận
+                  </Button>
+                }
+              >
+                <ListItemAvatar>
+                  <Avatar src={request.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde"} />
+                </ListItemAvatar>
+                <ListItemText
+                  primary={request.name}
+                  secondary="Đã gửi lời mời kết bạn"
+                />
+              </ListItem>
+            ))}
+          </List>
+        </>
+      )}
+
+      <Typography variant="subtitle1" sx={{ px: 2, mb: 1, fontWeight: "bold" }}>
+        Danh sách nhóm và bạn bè
+      </Typography>
+      <List sx={{ overflow: "auto", flex: 1 }}>
         {filteredContacts.map((contact) => (
           <ListItem
             key={contact.id}
@@ -36,57 +74,33 @@ const ContactList = ({ contacts, selectedContact, onContactSelect, pendingReques
             onClick={() => onContactSelect(contact)}
           >
             <ListItemAvatar>
-              <Avatar src={contact.avatar} />
+              <Badge
+                overlap="circular"
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                variant="dot"
+                color={contact.isGroup ? "default" : contact.status === "online" ? "success" : "error"}
+              >
+                <Avatar src={contact.avatar}>
+                  {contact.isGroup && <BiGroup />}
+                </Avatar>
+              </Badge>
             </ListItemAvatar>
             <ListItemText
-              primary={contact.name}
+              primary={
+                <Typography variant="subtitle1" fontWeight="medium">
+                  {contact.isGroup ? `[Nhóm] ${contact.name}` : `@${contact.username}`}
+                </Typography>
+              }
               secondary={
-                <>
-                  <Typography variant="body2" color="textSecondary">
-                    {contact.lastMessage}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {contact.timestamp}
-                  </Typography>
-                </>
+                <Typography variant="body2" color="textSecondary" noWrap>
+                  {contact.lastMessage}
+                </Typography>
               }
             />
-            {contact.unreadCount > 0 && (
-              <Box sx={{ ml: 2, bgcolor: 'primary.main', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography variant="caption" color="white">
-                  {contact.unreadCount}
-                </Typography>
-              </Box>
-            )}
           </ListItem>
         ))}
       </List>
-      {pendingRequests.length > 0 && (
-        <>
-          <Typography variant="subtitle1" sx={{ p: 2, fontWeight: 'bold' }}>
-            Lời mời kết bạn
-          </Typography>
-          <List>
-            {pendingRequests.map((request) => (
-              <ListItem key={request.id}>
-                <ListItemAvatar>
-                  <Avatar src={request.avatar} />
-                </ListItemAvatar>
-                <ListItemText primary={request.name} />
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={() => onAcceptFriendRequest(request.id)}
-                  disabled={isLoading}
-                >
-                  Chấp nhận
-                </Button>
-              </ListItem>
-            ))}
-          </List>
-        </>
-      )}
-    </Box>
+    </>
   );
 };
 

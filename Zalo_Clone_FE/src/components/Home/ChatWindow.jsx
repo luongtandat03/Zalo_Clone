@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText } from '@mui/material';
-import { BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup } from 'react-icons/bi';
-import Picker from 'emoji-picker-react'; // Thư viện emoji picker
-import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage } from '../../api/messageApi';
+import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button } from '@mui/material';
+import { BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin } from 'react-icons/bi';
+import Picker from 'emoji-picker-react';
+import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, pinMessage, unpinMessage, getPinnedMessages } from '../../api/messageApi';
 import { fetchGroupMembers } from '../../api/groupApi';
+import SearchMessages from '../../components/SearchMessages';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import SearchBar from '../../components/SearchBar'; // Import SearchBar để tìm kiếm tin nhắn
 
 const ChatContainer = styled(Box)(({ theme }) => ({
   flex: 1,
@@ -16,7 +16,7 @@ const ChatContainer = styled(Box)(({ theme }) => ({
 
 const MessageContainer = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'isSender',
-})(({ isSender }) => ({
+})(({ theme, isSender }) => ({
   display: 'flex',
   justifyContent: isSender ? 'flex-end' : 'flex-start',
   marginBottom: 2,
@@ -29,17 +29,27 @@ const MessageBubble = styled(Paper)(({ isSender, theme }) => ({
   backgroundColor: isSender ? theme.palette.primary.main : theme.palette.secondary.main,
   color: isSender ? 'white' : 'inherit',
   borderRadius: 20,
+  position: 'relative',
+}));
+
+const PinIndicator = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  top: -10,
+  right: 10,
+  color: theme.palette.warning.main,
 }));
 
 const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputChange, onSendMessage, onProfileOpen, userId, contacts, token }) => {
   const [localMessages, setLocalMessages] = useState(messages);
-  const [filteredMessages, setFilteredMessages] = useState(messages); // Tin nhắn đã lọc
   const [isSending, setIsSending] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const [pinnedMessagesDialogOpen, setPinnedMessagesDialogOpen] = useState(false);
+  const [pinnedMessages, setPinnedMessages] = useState([]);
   const [messageToForward, setMessageToForward] = useState(null);
   const [groupMembers, setGroupMembers] = useState([]);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Trạng thái hiển thị bảng chọn emoji
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     const uniqueMessages = messages.reduce((acc, msg) => {
@@ -49,10 +59,14 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       return acc;
     }, []);
     setLocalMessages(uniqueMessages);
-    setFilteredMessages(uniqueMessages); // Ban đầu hiển thị tất cả tin nhắn
   }, [messages]);
 
   useEffect(() => {
+    if (!token) {
+      setGroupMembers([]);
+      return;
+    }
+
     if (selectedContact?.isGroup) {
       fetchGroupMembers(selectedContact.id, token)
         .then(members => {
@@ -60,23 +74,42 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         })
         .catch(error => {
           console.error('Error fetching group members:', error);
+          setGroupMembers([]);
         });
     } else {
       setGroupMembers([]);
     }
   }, [selectedContact, token]);
 
-  // Hàm tìm kiếm tin nhắn
-  const handleSearchMessages = (searchTerm) => {
-    if (!searchTerm.trim()) {
-      setFilteredMessages(localMessages);
+  const handleShowPinnedMessages = async () => {
+    if (!token) {
+      toast.error('Vui lòng đăng nhập để xem tin nhắn đã ghim');
       return;
     }
 
-    const filtered = localMessages.filter((msg) =>
-      msg.content?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredMessages(filtered);
+    try {
+      const pinned = await getPinnedMessages(
+        selectedContact.isGroup ? userId : selectedContact.id,
+        selectedContact.isGroup ? selectedContact.id : null,
+        token
+      );
+      setPinnedMessages(pinned);
+      setPinnedMessagesDialogOpen(true);
+      toast.success('Đã tải danh sách tin nhắn đã ghim!');
+    } catch (error) {
+      console.error('Error fetching pinned messages:', error);
+      let errorMessage = 'Lỗi tải tin nhắn đã ghim';
+      if (error.response) {
+        if (error.response.status === 403) {
+          errorMessage = 'Không có quyền truy cập tin nhắn đã ghim. Vui lòng kiểm tra lại quyền truy cập nhóm.';
+        } else if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
+      } else {
+        errorMessage = error.message || errorMessage;
+      }
+      toast.error(errorMessage);
+    }
   };
 
   const handleSendMessage = () => {
@@ -88,7 +121,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
 
-    const tempKey = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`; // Tạo tempKey duy nhất
+    const tempKey = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const message = {
       senderId: userId,
       [selectedContact.isGroup ? 'groupId' : 'receiverId']: selectedContact.id,
@@ -107,6 +140,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           recalled: false,
           deletedByUsers: [],
           isRead: false,
+          isPinned: false,
         };
         onMessageInputChange({ target: { value: '' } });
         onSendMessage(newMessage);
@@ -119,11 +153,10 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       toast.error(`Lỗi gửi tin nhắn: ${error.message}`);
     } finally {
       setIsSending(false);
-      setShowEmojiPicker(false); // Ẩn bảng chọn emoji sau khi gửi
+      setShowEmojiPicker(false);
     }
   };
 
-  // Xử lý khi người dùng chọn emoji
   const onEmojiClick = (emojiObject) => {
     const newMessageInput = messageInput + emojiObject.emoji;
     onMessageInputChange({ target: { value: newMessageInput } });
@@ -168,6 +201,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           recalled: false,
           deletedByUsers: [],
           isRead: false,
+          isPinned: false,
         };
         onSendMessage(message);
       });
@@ -177,7 +211,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       toast.error(`Lỗi gửi file: ${error.message}`);
     } finally {
       setIsSending(false);
-      fileInputRef.current.value = '';
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -253,6 +289,97 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
     }
   };
 
+  const handlePinMessage = (message) => {
+    if (!token) {
+      toast.error('Vui lòng đăng nhập để ghim tin nhắn');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const identifier = message.id;
+      if (!identifier) {
+        throw new Error('Missing message identifier.');
+      }
+      const success = pinMessage(identifier, userId, token);
+      if (success) {
+        setLocalMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === message.id
+              ? { ...msg, isPinned: true }
+              : msg
+          )
+        );
+        toast.success('Tin nhắn đã được ghim!');
+      } else {
+        toast.error('Không thể ghim tin nhắn: WebSocket không hoạt động');
+      }
+    } catch (error) {
+      console.error('Error pinning message:', error);
+      toast.error(`Lỗi ghim tin nhắn: ${error.message}`);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleUnpinMessage = (message) => {
+    if (!token) {
+      toast.error('Vui lòng đăng nhập để bỏ ghim tin nhắn');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const identifier = message.id;
+      if (!identifier) {
+        throw new Error('Missing message identifier.');
+      }
+      const success = unpinMessage(identifier, userId, token);
+      if (success) {
+        setLocalMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === message.id
+              ? { ...msg, isPinned: false }
+              : msg
+          )
+        );
+        toast.success('Tin nhắn đã được bỏ ghim!');
+      } else {
+        toast.error('Không thể bỏ ghim tin nhắn: WebSocket không hoạt động');
+      }
+    } catch (error) {
+      console.error('Error unpinning message:', error);
+      toast.error(`Lỗi bỏ ghim tin nhắn: ${error.message}`);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleUnpinFromModal = async (message) => {
+    if (!token) {
+      toast.error('Vui lòng đăng nhập để bỏ ghim tin nhắn');
+      return;
+    }
+
+    try {
+      const success = await unpinMessage(message.id, userId, token);
+      if (success) {
+        setPinnedMessages((prev) => prev.filter((msg) => msg.id !== message.id));
+        setLocalMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === message.id ? { ...msg, isPinned: false } : msg
+          )
+        );
+        toast.success('Tin nhắn đã được bỏ ghim!');
+      } else {
+        toast.error('Không thể bỏ ghim tin nhắn: WebSocket không hoạt động');
+      }
+    } catch (error) {
+      console.error('Error unpinning message from modal:', error);
+      toast.error(`Lỗi bỏ ghim tin nhắn: ${error.message}`);
+    }
+  };
+
   const handleOpenForwardDialog = (message) => {
     setMessageToForward(message);
     setForwardDialogOpen(true);
@@ -291,6 +418,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           recalled: false,
           deletedByUsers: [],
           isRead: false,
+          isPinned: false,
         };
         onSendMessage(newMessage);
         toast.success('Tin nhắn đã được chuyển tiếp!');
@@ -304,6 +432,14 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       setIsSending(false);
       setForwardDialogOpen(false);
       setMessageToForward(null);
+    }
+  };
+
+  const handleSelectMessage = (message) => {
+    setPinnedMessagesDialogOpen(false);
+    const messageElement = document.getElementById(`message-${message.id}`);
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
 
@@ -335,11 +471,19 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           </Typography>
         </Box>
         {selectedContact.isGroup ? (
-          <IconButton onClick={() => onProfileOpen({ ...selectedContact, members: groupMembers })}>
-            <BiDotsVerticalRounded />
-          </IconButton>
+          <>
+            <IconButton onClick={handleShowPinnedMessages}>
+              <BiPin />
+            </IconButton>
+            <IconButton onClick={() => onProfileOpen({ ...selectedContact, members: groupMembers })}>
+              <BiDotsVerticalRounded />
+            </IconButton>
+          </>
         ) : (
           <>
+            <IconButton onClick={handleShowPinnedMessages}>
+              <BiPin />
+            </IconButton>
             <IconButton>
               <BiPhone />
             </IconButton>
@@ -353,17 +497,19 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         )}
       </Box>
 
-      {/* Thanh tìm kiếm tin nhắn */}
-      <SearchBar
-        placeholder="Tìm kiếm tin nhắn..."
-        onSearch={handleSearchMessages}
+      <SearchMessages
+        userId={userId}
+        selectedContact={selectedContact}
+        token={token}
+        onSelectMessage={handleSelectMessage}
       />
 
       <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: 'background.default', position: 'relative' }}>
-        {filteredMessages.map((message, index) => (
-          <MessageContainer 
-            key={message.id ? `${message.id}-${index}` : (message.tempKey ? `${message.tempKey}-${index}` : `${message.createAt}-${message.senderId}-${index}`)} 
+        {localMessages.map((message, index) => (
+          <MessageContainer
+            key={message.id ? `${message.id}-${index}` : (message.tempKey ? `${message.tempKey}-${index}` : `${message.createAt}-${message.senderId}-${index}`)}
             isSender={message.senderId === userId}
+            id={`message-${message.id}`}
           >
             {message.senderId === userId && !message.recalled && !(message.deletedByUsers?.includes(userId)) && (
               <Box display="flex" flexDirection="column" mr={1}>
@@ -376,9 +522,21 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                 <IconButton size="small" onClick={() => handleOpenForwardDialog(message)} disabled={isSending}>
                   <BiShare />
                 </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={() => (message.isPinned ? handleUnpinMessage(message) : handlePinMessage(message))}
+                  disabled={isSending}
+                >
+                  <BiPin />
+                </IconButton>
               </Box>
             )}
             <MessageBubble isSender={message.senderId === userId}>
+              {message.isPinned && (
+                <PinIndicator>
+                  <BiPin />
+                </PinIndicator>
+              )}
               {message.recalled ? (
                 <Typography fontStyle="italic">Tin nhắn đã được thu hồi</Typography>
               ) : (message.deletedByUsers?.includes(message.senderId) || message.deletedByUsers?.includes(message.receiverId) || message.deletedByUsers?.includes(userId)) ? (
@@ -440,9 +598,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             </MessageBubble>
           </MessageContainer>
         ))}
+        <div ref={messagesEndRef} />
       </Box>
 
-      {/* Bảng chọn emoji */}
       {showEmojiPicker && (
         <Box sx={{ position: 'absolute', bottom: 60, left: 10, zIndex: 1000 }}>
           <Picker onEmojiClick={onEmojiClick} />
@@ -499,6 +657,42 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             ))}
           </List>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={pinnedMessagesDialogOpen} onClose={() => setPinnedMessagesDialogOpen(false)}>
+        <DialogTitle>Tin nhắn đã ghim</DialogTitle>
+        <DialogContent>
+          {pinnedMessages.length > 0 ? (
+            <List>
+              {pinnedMessages.map((message) => (
+                <ListItem
+                  key={message.id}
+                  secondaryAction={
+                    <IconButton
+                      edge="end"
+                      onClick={() => handleUnpinFromModal(message)}
+                      disabled={isSending}
+                    >
+                      <BiPin />
+                    </IconButton>
+                  }
+                >
+                  <ListItemText
+                    primary={message.content}
+                    secondary={`Từ: ${selectedContact.isGroup ? (message.senderId === userId ? 'Bạn' : message.senderId) : message.senderId === userId ? 'Bạn' : selectedContact.name} - ${new Date(message.createAt).toLocaleString()}`}
+                    onClick={() => handleSelectMessage(message)}
+                    sx={{ cursor: 'pointer' }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          ) : (
+            <Typography>Không có tin nhắn nào được ghim.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPinnedMessagesDialogOpen(false)}>Đóng</Button>
+        </DialogActions>
       </Dialog>
 
       <ToastContainer position="bottom-right" autoClose={3000} />

@@ -51,32 +51,6 @@ export const getGroupChatHistory = async (groupId, token) => {
   }
 };
 
-// Hàm lấy danh sách tin nhắn đã ghim
-export const getPinnedMessages = async (otherUserId, groupId, token) => {
-  try {
-    const params = new URLSearchParams();
-    params.append('otherUserId', otherUserId);
-    if (groupId) {
-      params.append('groupId', groupId);
-    }
-
-    const response = await axios.get(`${API_BASE_URL}/all-pinned-messages`, {
-      params,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    return response.data.map(msg => ({
-      ...msg,
-      id: msg._id || msg.id,
-      _id: undefined,
-    }));
-  } catch (error) {
-    console.error('Error fetching pinned messages:', error);
-    throw error;
-  }
-};
-
 // Hàm upload file
 export const uploadFile = async (files, receiverId, token, groupId = null, replyToMessageId = null) => {
   try {
@@ -101,8 +75,112 @@ export const uploadFile = async (files, receiverId, token, groupId = null, reply
   }
 };
 
+// Hàm tìm kiếm tin nhắn
+export const searchMessages = async (userId, otherUserId, groupId, keyword, token) => {
+  try {
+    const effectiveOtherUserId = groupId ? userId : (otherUserId || userId);
+    const params = new URLSearchParams({ otherUserId: effectiveOtherUserId, keyword });
+    if (groupId) params.append('groupId', groupId);
+
+    console.log('Search messages params:', params.toString());
+    const response = await axios.get(`${API_BASE_URL}/search`, {
+      params,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
+    return response.data
+      .filter(msg => !deletedMessageIds.includes(msg._id || msg.id))
+      .map(msg => ({
+        ...msg,
+        id: msg._id || msg.id,
+        _id: undefined,
+        createAt: msg.createAt || msg.createdAt,
+      }));
+  } catch (error) {
+    console.error('Error searching messages:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Hàm lấy danh sách tin nhắn đã ghim
+export const getPinnedMessages = async (otherUserId, groupId, token) => {
+  try {
+    const params = new URLSearchParams();
+    if (groupId) {
+      params.append('otherUserId', otherUserId || '');
+      params.append('groupId', groupId);
+    } else {
+      params.append('otherUserId', otherUserId);
+    }
+
+    console.log('Get pinned messages params:', params.toString());
+    const response = await axios.get(`${API_BASE_URL}/all-pinned-messages`, {
+      params,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
+    return response.data
+      .filter(msg => !deletedMessageIds.includes(msg._id || msg.id))
+      .map(msg => ({
+        ...msg,
+        id: msg._id || msg.id,
+        _id: undefined,
+        createAt: msg.createAt || msg.createdAt,
+      }));
+  } catch (error) {
+    console.error('Error fetching pinned messages:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Hàm ghim tin nhắn
+export const pinMessage = async (messageId, userId, token) => {
+  if (!stompClient || !stompClient.connected) {
+    console.error('Cannot pin message: STOMP client is not connected');
+    return false;
+  }
+
+  try {
+    stompClient.publish({
+      destination: '/app/chat.pin',
+      body: JSON.stringify({ id: messageId, senderId: userId }),
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log('Pinned message:', messageId);
+    return true;
+  } catch (error) {
+    console.error('Error pinning message:', error);
+    return false;
+  }
+};
+
+// Hàm bỏ ghim tin nhắn
+export const unpinMessage = async (messageId, userId, token) => {
+  if (!stompClient || !stompClient.connected) {
+    console.error('Cannot unpin message: STOMP client is not connected');
+    return false;
+  }
+
+  try {
+    stompClient.publish({
+      destination: '/app/chat.unpin',
+      body: JSON.stringify({ id: messageId, senderId: userId }),
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log('Unpinned message:', messageId);
+    return true;
+  } catch (error) {
+    console.error('Error unpinning message:', error);
+    return false;
+  }
+};
+
 // Hàm kết nối WebSocket với STOMP
-export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallback, onRecallCallback, groupIds = []) {
+export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallback, onRecallCallback, onPinCallback, onUnpinCallback, groupIds = []) {
   return new Promise((resolve, reject) => {
     if (!token) {
       reject(new Error('Token is missing'));
@@ -146,7 +224,7 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
       }
 
       console.log('STOMP connected:', frame);
-      
+
       // Subscription cho tin nhắn 1-1
       stompClient.subscribe(`/user/${userId}/queue/messages`, (message) => {
         try {
@@ -213,6 +291,44 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
         }
       }, { Authorization: `Bearer ${token}` });
 
+      // Subscription cho thông báo ghim tin nhắn
+      stompClient.subscribe(`/user/${userId}/queue/pin`, (message) => {
+        try {
+          const parsedMessage = JSON.parse(message.body);
+          console.log('Pin notification:', parsedMessage);
+          if (parsedMessage._id) {
+            parsedMessage.id = parsedMessage._id;
+            delete parsedMessage._id;
+          }
+          if (onPinCallback) {
+            onPinCallback(parsedMessage);
+          } else {
+            console.warn('onPinCallback is not defined');
+          }
+        } catch (error) {
+          console.error('Error parsing pin notification:', error);
+        }
+      }, { Authorization: `Bearer ${token}` });
+
+      // Subscription cho thông báo bỏ ghim tin nhắn
+      stompClient.subscribe(`/user/${userId}/queue/unpin`, (message) => {
+        try {
+          const parsedMessage = JSON.parse(message.body);
+          console.log('Unpin notification:', parsedMessage);
+          if (parsedMessage._id) {
+            parsedMessage.id = parsedMessage._id;
+            delete parsedMessage._id;
+          }
+          if (onUnpinCallback) {
+            onUnpinCallback(parsedMessage);
+          } else {
+            console.warn('onUnpinCallback is not defined');
+          }
+        } catch (error) {
+          console.error('Error parsing unpin notification:', error);
+        }
+      }, { Authorization: `Bearer ${token}` });
+
       resolve();
     };
 
@@ -236,7 +352,7 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
   });
 }
 
-// Hàm gửi tin nhắn 1-1 và nhóm (BE sẽ xử lý dựa trên groupId hoặc receiverId)
+// Hàm gửi tin nhắn 1-1
 export function sendMessage(destination, message, token) {
   if (!stompClient || !stompClient.connected) {
     console.error('Cannot send message: STOMP client is not connected');
@@ -257,46 +373,23 @@ export function sendMessage(destination, message, token) {
   }
 }
 
-// Hàm ghim tin nhắn
-export function pinMessage(identifier, userId, token) {
+// Hàm gửi tin nhắn nhóm
+export function sendGroupMessage(destination, message, token) {
   if (!stompClient || !stompClient.connected) {
-    console.error('Cannot pin message: STOMP client is not connected');
+    console.error('Cannot send group message: STOMP client is not connected');
     return false;
   }
 
   try {
-    const message = { id: identifier, senderId: userId };
     stompClient.publish({
-      destination: '/app/chat.pin',
+      destination,
       body: JSON.stringify(message),
       headers: { Authorization: `Bearer ${token}` },
     });
-    console.log('Pinned message:', identifier);
+    console.log('Sent group message to', destination, ':', message);
     return true;
   } catch (error) {
-    console.error('Error pinning message:', error);
-    return false;
-  }
-}
-
-// Hàm bỏ ghim tin nhắn
-export function unpinMessage(identifier, userId, token) {
-  if (!stompClient || !stompClient.connected) {
-    console.error('Cannot unpin message: STOMP client is not connected');
-    return false;
-  }
-
-  try {
-    const message = { id: identifier, senderId: userId };
-    stompClient.publish({
-      destination: '/app/chat.unpin',
-      body: JSON.stringify(message),
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    console.log('Unpinned message:', identifier);
-    return true;
-  } catch (error) {
-    console.error('Error unpinning message:', error);
+    console.error('Error sending group message:', error);
     return false;
   }
 }

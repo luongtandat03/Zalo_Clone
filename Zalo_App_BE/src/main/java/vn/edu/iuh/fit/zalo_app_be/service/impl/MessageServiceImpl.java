@@ -161,7 +161,6 @@ public class MessageServiceImpl implements MessageService {
             message.setUpdatedAt(LocalDateTime.now());
             message.setRead(false);
 
-
             messageRepository.save(message);
             log.info("File uploaded: {} with origin name: {} for sender: {}", originalFileName, originalFileName, request.getSenderId());
 
@@ -178,7 +177,6 @@ public class MessageServiceImpl implements MessageService {
             throw new RuntimeException("Error uploading file: " + e.getMessage());
         }
     }
-
 
     @Override
     public List<MessageResponse> getChatHistory(String userOtherId) {
@@ -320,10 +318,10 @@ public class MessageServiceImpl implements MessageService {
         List<Message> pinnedMessages;
         if (groupId != null) {
             validateGroup(groupId, userId);
-            pinnedMessages = messageRepository.findByGroupIdAndPinned(groupId, true);
+            pinnedMessages = messageRepository.findByGroupIdAndIsPinned(groupId, true);
         } else {
             validateUser(userId, otherUserId);
-            pinnedMessages = messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderIdAndPinned(userId, otherUserId, userId, otherUserId, true);
+            pinnedMessages = messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderIdAndIsPinned(userId, otherUserId, userId, otherUserId, true);
         }
 
         return pinnedMessages
@@ -335,8 +333,6 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public List<MessageResponse> searchMessages(String userId, String otherUserId, String groupId, String keyword) {
-        validateUser(userId, otherUserId);
-
         if (groupId != null) {
             validateGroup(groupId, userId);
             return messageRepository.findByGroupIdAndContentContaining(groupId, keyword)
@@ -347,16 +343,18 @@ public class MessageServiceImpl implements MessageService {
                     .map(this::convertToMessageResponse)
                     .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
                     .collect(Collectors.toList());
+        } else {
+            validateUser(userId, otherUserId);
+            return messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(userId, otherUserId, userId, otherUserId)
+                    .stream()
+                    .filter(msg ->
+                            (msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
+                                    || (msg.getFileName() != null && msg.getFileName().toLowerCase().contains(keyword.toLowerCase()))
+                    )
+                    .map(this::convertToMessageResponse)
+                    .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
+                    .collect(Collectors.toList());
         }
-        return messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(userId, otherUserId, userId, otherUserId)
-                .stream()
-                .filter(msg ->
-                        (msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
-                                || (msg.getFileName() != null && msg.getFileName().toLowerCase().contains(keyword.toLowerCase()))
-                )
-                .map(this::convertToMessageResponse)
-                .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
-                .collect(Collectors.toList());
     }
 
     @Override
@@ -416,6 +414,4 @@ public class MessageServiceImpl implements MessageService {
             return false;
         }
     }
-
 }
-

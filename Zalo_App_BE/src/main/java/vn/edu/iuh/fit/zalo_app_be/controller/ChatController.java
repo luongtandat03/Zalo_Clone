@@ -1,4 +1,14 @@
+/*
+ * @ (#) ChatController.java       1.0     4/20/2025
+ *
+ * Copyright (c) 2025. All rights reserved.
+ */
+
 package vn.edu.iuh.fit.zalo_app_be.controller;
+/*
+ * @author: Luong Tan Dat
+ * @date: 4/20/2025
+ */
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,16 +30,11 @@ public class ChatController {
 
     @MessageMapping("/chat.send")
     public void sendMessage(@Payload MessageRequest request) {
-        log.debug("Processing chat request: sender={}, receiver={}, group={}",
-                request.getSenderId(), request.getReceiverId(), request.getGroupId());
+        log.debug("Processing chat request: sender={}, receiver={}",
+                request.getSenderId(), request.getReceiverId());
         try {
-            // Kiểm tra senderId luôn bắt buộc
-            if (request.getSenderId() == null) {
-                throw new RuntimeException("Invalid message request: missing senderId");
-            }
-            // Kiểm tra receiverId hoặc groupId: ít nhất một trong hai phải có
-            if (request.getReceiverId() == null && request.getGroupId() == null) {
-                throw new RuntimeException("Invalid message request: missing receiverId or groupId");
+            if (request.getSenderId() == null || request.getReceiverId() == null) {
+                throw new RuntimeException("Invalid message request: missing senderId or receiverId");
             }
 
             MessageResponse response = messageService.saveMessage(request);
@@ -54,10 +59,11 @@ public class ChatController {
             }
 
         } catch (Exception e) {
-            log.error("Error processing message: sender={}, receiver={}, group={}, error={}",
-                    request.getSenderId(), request.getReceiverId(), request.getGroupId(), e.getMessage());
+            log.error("Error processing message: sender={}, receiver={}, error={}",
+                    request.getSenderId(), request.getReceiverId(), e.getMessage());
             throw e;
         }
+
     }
 
     @MessageMapping("/chat.recall")
@@ -73,7 +79,7 @@ public class ChatController {
             }
 
             messageService.recallMessage(messageId, userId);
-            if (request.getGroupId() != null) {
+            if(request.getGroupId() != null) {
                 webSocketService.notifyGroupRecall(messageId, userId, request.getGroupId());
             } else {
                 webSocketService.notifyRecall(messageId, userId);
@@ -100,7 +106,7 @@ public class ChatController {
             }
 
             messageService.deleteMessage(messageId, userId);
-            if (request.getGroupId() != null) {
+            if(request.getGroupId() != null) {
                 webSocketService.notifyGroupDelete(messageId, userId, request.getGroupId());
             } else {
                 webSocketService.notifyDelete(messageId, userId);
@@ -129,10 +135,10 @@ public class ChatController {
             }
 
             messageService.forwardMessage(messageId, userId, receiverId);
-            if (groupId != null) {
+            if(groupId != null) {
                 webSocketService.sendGroupMessage(new MessageRequest(userId, receiverId, request.getContent(), groupId, MessageType.FORWARD));
-            } else {
-                webSocketService.sendMessage(new MessageRequest(userId, receiverId, request.getContent(), null, MessageType.FORWARD));
+            }else {
+                webSocketService.sendMessage(new MessageRequest(userId, receiverId, request.getContent(), null  , MessageType.FORWARD));
             }
             log.info("Message forwarded: messageId={}, userId={}, receiverId={}, groupId={}",
                     messageId, userId, receiverId, groupId);
@@ -148,6 +154,7 @@ public class ChatController {
         String messageId = request.getId();
         String senderId = request.getSenderId();
         String receiverId = request.getReceiverId();
+
 
         log.debug("Processing read message request: messageId={}, userId={}",
                 messageId, receiverId);

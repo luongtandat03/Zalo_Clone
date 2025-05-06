@@ -97,27 +97,21 @@ const Home = () => {
   const [groupName, setGroupName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
 
+  // Đồng bộ token với localStorage
   useEffect(() => {
-    console.log('Home mounted with userId:', userId);
-    if (profileOpen) {
-      fetchUserProfile(token).then((data) => {
-        if (data) {
-          setUserProfile(data);
-        }
-      });
+    const storedToken = localStorage.getItem('accessToken');
+    if (storedToken !== token) {
+      setToken(storedToken);
     }
-    return () => {
-      console.log('Home unmounting');
-    };
-  }, [profileOpen, token]);
+  }, [token]);
 
+  // Kiểm tra token và chuyển hướng ngay lập tức nếu không có token
   useEffect(() => {
-    // Kiểm tra token và chuyển hướng nếu không có token
     if (!token) {
       setSnackbarMessage('Vui lòng đăng nhập để sử dụng chức năng!');
       setSnackbarSeverity('error');
       setOpenSnackbar(true);
-      navigate("/"); // Chuyển hướng về trang đăng nhập
+      navigate("/"); // Chuyển hướng ngay lập tức về trang đăng nhập
       return;
     }
 
@@ -173,6 +167,7 @@ const Home = () => {
               recalled: receivedMessage.recalled || false,
               deletedByUsers: receivedMessage.deletedByUsers || [],
               isRead: receivedMessage.isRead || false,
+              isPinned: receivedMessage.isPinned || false,
             }];
           });
         },
@@ -205,6 +200,28 @@ const Home = () => {
             )
           );
         },
+        (pinnedMessage) => {
+          if (!isMounted) return;
+          console.log('Received pin notification:', pinnedMessage);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === pinnedMessage.id
+                ? { ...msg, isPinned: true }
+                : msg
+            )
+          );
+        },
+        (unpinnedMessage) => {
+          if (!isMounted) return;
+          console.log('Received unpin notification:', unpinnedMessage);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === unpinnedMessage.id
+                ? { ...msg, isPinned: false }
+                : msg
+            )
+          );
+        },
         groupIds
       ).then(() => {
         if (!isMounted) return;
@@ -224,7 +241,22 @@ const Home = () => {
     };
   }, [token, userId, navigate]);
 
+  useEffect(() => {
+    console.log('Home mounted with userId:', userId);
+    if (profileOpen) {
+      fetchUserProfile(token).then((data) => {
+        if (data) {
+          setUserProfile(data);
+        }
+      });
+    }
+    return () => {
+      console.log('Home unmounting');
+    };
+  }, [profileOpen, token]);
+
   const updateGroups = useCallback(async () => {
+    if (!token) return [];
     try {
       const groups = await fetchUserGroups(userId, token);
       const groupContacts = groups.map(group => ({
@@ -249,6 +281,7 @@ const Home = () => {
   }, [userId, token]);
 
   const updateFriendsList = useCallback(async () => {
+    if (!token) return;
     setIsLoading(true);
     try {
       const data = await fetchFriendsList(token);
@@ -281,6 +314,7 @@ const Home = () => {
   }, [token]);
 
   const updatePendingRequests = useCallback(async () => {
+    if (!token) return;
     setIsLoading(true);
     try {
       const data = await fetchPendingFriendRequests(token);
@@ -345,6 +379,7 @@ const Home = () => {
               recalled: msg.recalled || false,
               deletedByUsers: msg.deletedByUsers || [],
               isRead: msg.isRead || false,
+              isPinned: msg.isPinned || false,
             });
           }
           return acc;
@@ -375,7 +410,6 @@ const Home = () => {
         return prev;
       }
 
-      // Không kiểm tra messageExists, vì mỗi tin nhắn có tempKey duy nhất
       return [...prev, message];
     });
   }, []);
@@ -408,9 +442,7 @@ const Home = () => {
     setSnackbarSeverity("success");
     setOpenSnackbar(true);
     handleMenuClose();
-    setTimeout(() => {
-      navigate("/");
-    }, 1000);
+    navigate("/");
   }, [navigate]);
 
   const handleToggleAddFriendInput = useCallback(() => {
@@ -641,7 +673,15 @@ const Home = () => {
             )}
             {currentView === "settings" && <SettingsPanel />}
           </SidebarContainer>
-          <ChatWindow {...chatWindowProps} />
+          {token ? (
+            <ChatWindow {...chatWindowProps} />
+          ) : (
+            <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+              <Typography variant="h6" color="text.secondary">
+                Vui lòng đăng nhập để sử dụng chức năng chat
+              </Typography>
+            </Box>
+          )}
           <ProfileModal
             open={profileOpen}
             onClose={handleProfileClose}
