@@ -210,7 +210,7 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
   });
 }
 
-// Hàm gửi tin nhắn 1-1
+// Hàm gửi tin nhắn 1-1 và nhóm (BE sẽ xử lý dựa trên groupId hoặc receiverId)
 export function sendMessage(destination, message, token) {
   if (!stompClient || !stompClient.connected) {
     console.error('Cannot send message: STOMP client is not connected');
@@ -227,27 +227,6 @@ export function sendMessage(destination, message, token) {
     return true;
   } catch (error) {
     console.error('Error sending message:', error);
-    return false;
-  }
-}
-
-// Hàm gửi tin nhắn nhóm
-export function sendGroupMessage(destination, message, token) {
-  if (!stompClient || !stompClient.connected) {
-    console.error('Cannot send group message: STOMP client is not connected');
-    return false;
-  }
-
-  try {
-    stompClient.publish({
-      destination,
-      body: JSON.stringify(message),
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    console.log('Sent group message to', destination, ':', message);
-    return true;
-  } catch (error) {
-    console.error('Error sending group message:', error);
     return false;
   }
 }
