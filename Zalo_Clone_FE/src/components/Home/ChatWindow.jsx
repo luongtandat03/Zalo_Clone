@@ -1,19 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button , Divider} from '@mui/material';
-import { BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin } from 'react-icons/bi';
+import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button, Divider } from '@mui/material';
+import {BiSearch,BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin } from 'react-icons/bi';
 import Picker from 'emoji-picker-react';
 import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, pinMessage, unpinMessage, getPinnedMessages } from '../../api/messageApi';
 import { fetchGroupMembers } from '../../api/groupApi';
-import { deleteFriend } from '../../api/user';
+import { deleteFriend, blockUser, unblockUser } from '../../api/user';
 import SearchMessages from '../../components/SearchMessages';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Phone, MessageCircle, Slash, Trash, Settings, LogOut } from "lucide-react";
+import SettingGroup from '../../components/Home/SettingGroup';
 
 const ChatContainer = styled(Box)(({ theme }) => ({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
+  backgroundColor: theme.palette.grey[100],
 }));
 
 const MessageContainer = styled(Box, {
@@ -24,16 +26,16 @@ const MessageContainer = styled(Box, {
   marginBottom: 2,
   padding: '8px 16px',
   alignItems: 'center',
+  
 }));
 
 const MessageBubble = styled(Paper)(({ isSender, theme }) => ({
   padding: '8px 16px',
-  backgroundColor: isSender ? theme.palette.primary.main : theme.palette.secondary.main,
-  color: isSender ? 'white' : 'inherit',
+  backgroundColor: isSender ? theme.palette.primary.main : '#ffffff', 
+  color: isSender ? 'white' : 'black', 
   borderRadius: 20,
   position: 'relative',
 }));
-
 const PinIndicator = styled(Box)(({ theme }) => ({
   position: 'absolute',
   top: -10,
@@ -54,6 +56,60 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
   const messagesEndRef = useRef(null);
   const [isProfileOpen, setIsProfileOpen] = React.useState(false);
   const [profileData, setProfileData] = React.useState(null);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isSettingGroupOpen, setIsSettingGroupOpen] = useState(false);
+  const [showSearchBar, setShowSearchBar] = useState(false);
+  const handleOpenSettingGroup = () => {
+    setIsSettingGroupOpen(true);
+  };
+  const handleCloseSettingGroup = () => {
+    setIsSettingGroupOpen(false);
+  };
+  const handleBlockUser = async () => {
+    if (!selectedContact || !selectedContact.id) {
+      toast.error("Không tìm thấy người dùng để chặn");
+      return;
+    }
+
+    const confirmBlock = window.confirm(`Bạn có chắc chắn muốn chặn ${selectedContact.name || "người dùng này"} không?`);
+    if (!confirmBlock) return;
+
+    try {
+      const result = await blockUser(selectedContact.id);
+      if (result) {
+        setIsBlocked(true);
+        toast.success("Đã chặn người dùng thành công!");
+      } else {
+        toast.error("Chặn người dùng thất bại!");
+      }
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      toast.error("Có lỗi xảy ra khi chặn người dùng");
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    if (!selectedContact || !selectedContact.id) {
+      toast.error("Không tìm thấy người dùng để gỡ chặn");
+      return;
+    }
+
+    const confirmUnblock = window.confirm(`Bạn có chắc chắn muốn gỡ chặn ${selectedContact.name || "người dùng này"} không?`);
+    if (!confirmUnblock) return;
+
+    try {
+      const result = await unblockUser(selectedContact.id);
+      if (result) {
+        setIsBlocked(false);
+        toast.success("Đã gỡ chặn người dùng thành công!");
+      } else {
+        toast.error("Gỡ chặn người dùng thất bại!");
+      }
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      toast.error("Có lỗi xảy ra khi gỡ chặn người dùng");
+    }
+  };
 
   const handleProfileOpen = () => {
     setProfileData(selectedContact);
@@ -530,6 +586,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         </Box>
         {selectedContact.isGroup ? (
           <>
+          <IconButton onClick={() => setShowSearchBar(!showSearchBar)}>
+        <BiSearch />
+          </IconButton>
             <IconButton onClick={handleShowPinnedMessages}>
               <BiPin />
             </IconButton>
@@ -544,6 +603,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           </>
         ) : (
           <>
+          <IconButton onClick={() => setShowSearchBar(!showSearchBar)}>
+          <BiSearch />
+          </IconButton>
             <IconButton onClick={handleShowPinnedMessages}>
               <BiPin />
             </IconButton>
@@ -557,14 +619,17 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         )}
       </Box>
 
+      {showSearchBar && (
       <SearchMessages
-        userId={userId}
-        selectedContact={selectedContact}
-        token={token}
-        onSelectMessage={handleSelectMessage}
-      />
+      userId={userId}
+      selectedContact={selectedContact}
+      token={token}
+      onSelectMessage={handleSelectMessage}
+      onClose={() => setShowSearchBar(false)}
+  />
+)}
 
-      <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: 'background.default', position: 'relative' }}>
+      <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: '#f0f0f0', position: 'relative' }}>
         {localMessages.map((message, index) => (
           <MessageContainer
             key={message.id ? `${message.id}-${index}` : (message.tempKey ? `${message.tempKey}-${index}` : `${message.createAt}-${message.senderId}-${index}`)}
@@ -836,6 +901,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                   <Button
                     variant="outlined"
                     startIcon={<Settings />}
+                    onClick={handleOpenSettingGroup} 
                     sx={{
                       color: "#f1c40f",
                       borderColor: "#f1c40f",
@@ -912,15 +978,17 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                 <Box display="flex" flexDirection="column" gap={1}>
                   <Button
                     variant="outlined"
-                    color="warning"
-                    startIcon={<Slash />}
+                    color={isBlocked ? "success" : "warning"}
+                    startIcon={isBlocked ? <BiUndo /> : <Slash />}
+                    onClick={isBlocked ? handleUnblockUser : handleBlockUser}
                     sx={{
-                      color: "#f1c40f",
-                      borderColor: "#f1c40f",
-                      ":hover": { borderColor: "#f39c12", color: "#f39c12" },
+                      color: isBlocked ? "#2ecc71" : "#f1c40f",
+                      borderColor: isBlocked ? "#2ecc71" : "#f1c40f",
+                      ":hover": { borderColor: isBlocked ? "#27ae60" : "#f39c12", color: isBlocked ? "#27ae60" : "#f39c12" },
+                      marginTop: 2,
                     }}
                   >
-                    CHẶN TIN NHẮN VÀ CUỘC GỌI
+                    {isBlocked ? "GỠ CHẶN TIN NHẮN VÀ CUỘC GỌI" : "CHẶN TIN NHẮN VÀ CUỘC GỌI"}
                   </Button>
 
                   <Button
@@ -948,6 +1016,12 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             >
               ĐÓNG
             </Button>
+            <SettingGroup
+              open={isSettingGroupOpen}
+              onClose={handleCloseSettingGroup}
+              groupId={profileData.id}
+              token={token}
+            />
           </DialogContent>
         )}
       </Dialog>
