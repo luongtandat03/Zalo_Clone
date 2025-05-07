@@ -1,6 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
-// Lấy thông tin hồ sơ người dùng
+import axios from "axios";
+
 export const fetchUserProfile = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/user/get-info-for-user`, {
@@ -19,37 +20,34 @@ export const fetchUserProfile = async () => {
   }
 };
 
-// Cập nhật hồ sơ người dùng
-export const updateUserProfile = async (updatedData) => {
+export const updateUserProfile = async (data) => {
   try {
     const formData = new FormData();
-    for (const key in updatedData) {
-      if (key === "avatar" && updatedData[key] instanceof File) {
-        formData.append("avatar", updatedData[key]);
-      } else {
-        formData.append(key, updatedData[key]);
-      }
+    const requestData = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone,
+      gender: data.gender,
+      birthday: data.birthday,
+    };
+    formData.append("request", new Blob([JSON.stringify(requestData)], { type: "application/json" }));
+    if (data.avatar) {
+      formData.append("avatar", data.avatar);
     }
-
-    const response = await fetch(`${API_BASE_URL}/user/update`, {
-      method: "PUT",
+    const response = await axios.put("/api/user/update", formData, {
       headers: {
+        "Content-Type": "multipart/form-data",
         Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
       },
-      body: formData,
     });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Failed to update profile");
-    }
-    return response.json();
+    return response.data;
   } catch (error) {
-    console.error("Error updating profile:", error);
+    console.error("Update profile failed", error);
     return null;
   }
 };
 
-// Đổi mật khẩu
 export const updatePassword = async (oldPassword, newPassword) => {
   try {
     const response = await fetch(`${API_BASE_URL}/user/change-password`, {
@@ -74,12 +72,10 @@ export const updatePassword = async (oldPassword, newPassword) => {
   }
 };
 
-// Tải ảnh đại diện
 export const uploadAvatar = async (file) => {
   try {
     const formData = new FormData();
     formData.append("avatar", file);
-
     const response = await fetch(`${API_BASE_URL}/user/upload-avatar`, {
       method: "POST",
       headers: {
@@ -97,7 +93,6 @@ export const uploadAvatar = async (file) => {
   }
 };
 
-// 1. Lấy danh sách bạn bè hiện tại
 export const fetchFriendsList = async () => {
   try {
     const response = await fetch(`/api/friend`, {
@@ -116,7 +111,6 @@ export const fetchFriendsList = async () => {
   }
 };
 
-// 2. Lấy danh sách lời mời kết bạn đang chờ xử lý
 export const fetchPendingFriendRequests = async () => {
   try {
     const response = await fetch(`/api/friend/requests/pending`, {
@@ -135,7 +129,6 @@ export const fetchPendingFriendRequests = async () => {
   }
 };
 
-// 3. Gửi lời mời kết bạn tới một người dùng
 export const sendFriendRequest = async (userId) => {
   try {
     const response = await fetch(`/api/friend/send-request/${userId}`, {
@@ -155,7 +148,6 @@ export const sendFriendRequest = async (userId) => {
   }
 };
 
-// 4. Chấp nhận lời mời kết bạn
 export const acceptFriendRequest = async (userId) => {
   try {
     const response = await fetch(`/api/friend/request/${userId}/accept`, {
@@ -171,6 +163,121 @@ export const acceptFriendRequest = async (userId) => {
     return response.json();
   } catch (error) {
     console.error("Error accepting friend request:", error);
+    return null;
+  }
+};
+
+export const cancelFriendRequest = async (requestId) => {
+  try {
+    const response = await fetch(`/api/friend/request/${requestId}/cancel`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+      },
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to cancel friend request");
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error canceling friend request:", error);
+    return null;
+  }
+};
+
+export const deleteFriend = async (friendId) => {
+  try {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      throw new Error("Vui lòng đăng nhập để xóa bạn bè");
+    }
+    const currentUserId = localStorage.getItem('userId');
+    if (friendId === currentUserId) {
+      throw new Error("Bạn không thể xóa chính mình khỏi danh sách bạn bè");
+    }
+    const response = await fetch(`/api/friend/${friendId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!response.ok) {
+      let errorMessage = "Không thể xóa bạn bè";
+      if (response.status === 403) {
+        errorMessage = "Bạn không có quyền xóa bạn bè này";
+      } else if (response.status === 404) {
+        errorMessage = "Người dùng không tồn tại hoặc không phải bạn bè";
+      } else {
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          console.warn("Non-JSON response received:", await response.text());
+        }
+      }
+      throw new Error(errorMessage);
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error deleting friend:", error);
+    throw error;
+  }
+};
+
+export const blockUser = async (blockedUserId) => {
+  try {
+    const response = await fetch(`/api/friend/block/${blockedUserId}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+      },
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to block user");
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error blocking user:", error);
+    return null;
+  }
+};
+
+export const unblockUser = async (blockedUserId) => {
+  try {
+    const response = await fetch(`/api/friend/unblock/${blockedUserId}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+      },
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to unblock user");
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error unblocking user:", error);
+    return null;
+  }
+};
+
+export const getFriendById = async (friendId) => {
+  try {
+    const response = await fetch(`/api/friend/${friendId}`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+      },
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch friend details");
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching friend details:", error);
     return null;
   }
 };

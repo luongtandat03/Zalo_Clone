@@ -96,7 +96,6 @@ const Home = () => {
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
-
   // Đồng bộ token với localStorage
   useEffect(() => {
     const storedToken = localStorage.getItem('accessToken');
@@ -587,7 +586,7 @@ const Home = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <RootContainer>
-          <NavSidebar 
+          <NavSidebar
             userProfile={userProfile}
             currentView={currentView}
             onViewChange={setCurrentView}
@@ -674,7 +673,8 @@ const Home = () => {
             {currentView === "settings" && <SettingsPanel />}
           </SidebarContainer>
           {token ? (
-            <ChatWindow {...chatWindowProps} />
+            <ChatWindow {...chatWindowProps} 
+            />
           ) : (
             <Box display="flex" alignItems="center" justifyContent="center" height="100%">
               <Typography variant="h6" color="text.secondary">
