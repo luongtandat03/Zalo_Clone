@@ -239,7 +239,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       toast.error('Vui lòng đăng nhập để gửi file');
       return;
     }
-
+  
     setIsSending(true);
     try {
       const fileUrls = await uploadFile(
@@ -256,10 +256,11 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           type = 'IMAGE';
         } else if (contentType.startsWith('video/')) {
           type = 'VIDEO';
+        } else if (contentType.startsWith('audio/')) {
+          type = 'AUDIO'; // Thêm loại AUDIO
         } else if (contentType === 'application/zip' || contentType === 'application/x-rar-compressed') {
           type = 'FILE';
         }
-
         const tempKey = `${Date.now()}-${url}`;
         const message = {
           senderId: userId,
@@ -460,13 +461,25 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       toast.error('Vui lòng đăng nhập để chuyển tiếp tin nhắn');
       return;
     }
-
+    if (!contact.id) {
+      toast.error('Không tìm thấy ID của liên hệ hoặc nhóm');
+      return;
+    }
+  
     setIsSending(true);
     try {
       const identifier = messageToForward?.id;
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
+      console.log('Forwarding message:', {
+        identifier,
+        userId,
+        receiverId: contact.isGroup ? null : contact.id,
+        groupId: contact.isGroup ? contact.id : null,
+        content: messageToForward.content,
+        type: messageToForward.type
+      });
       const success = forwardMessage(
         identifier,
         userId,
@@ -476,21 +489,6 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         token
       );
       if (success) {
-        const tempKey = `${Date.now()}-${messageToForward.content}`;
-        const newMessage = {
-          senderId: userId,
-          [contact.isGroup ? 'groupId' : 'receiverId']: contact.id,
-          content: messageToForward.content,
-          type: 'FORWARD',
-          forwardedFrom: { messageId: messageToForward.id, senderId: userId },
-          tempKey: tempKey,
-          createAt: new Date().toISOString(),
-          recalled: false,
-          deletedByUsers: [],
-          isRead: false,
-          isPinned: false,
-        };
-        onSendMessage(newMessage);
         toast.success('Tin nhắn đã được chuyển tiếp!');
       } else {
         toast.error('Không thể chuyển tiếp tin nhắn: WebSocket không hoạt động');
@@ -504,7 +502,6 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       setMessageToForward(null);
     }
   };
-
   const handleSelectMessage = (message) => {
     setPinnedMessagesDialogOpen(false);
     const messageElement = document.getElementById(`message-${message.id}`);

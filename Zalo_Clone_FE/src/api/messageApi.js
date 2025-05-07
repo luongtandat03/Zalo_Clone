@@ -444,7 +444,6 @@ export function forwardMessage(identifier, userId, receiverId, groupId, content,
     console.error('Cannot forward message: STOMP client is not connected');
     return false;
   }
-
   try {
     const message = {
       id: identifier,
