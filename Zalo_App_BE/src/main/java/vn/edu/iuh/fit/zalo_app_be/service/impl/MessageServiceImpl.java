@@ -161,6 +161,7 @@ public class MessageServiceImpl implements MessageService {
             message.setUpdatedAt(LocalDateTime.now());
             message.setRead(false);
 
+
             messageRepository.save(message);
             log.info("File uploaded: {} with origin name: {} for sender: {}", originalFileName, originalFileName, request.getSenderId());
 
@@ -177,6 +178,7 @@ public class MessageServiceImpl implements MessageService {
             throw new RuntimeException("Error uploading file: " + e.getMessage());
         }
     }
+
 
     @Override
     public List<MessageResponse> getChatHistory(String userOtherId) {
@@ -252,11 +254,13 @@ public class MessageServiceImpl implements MessageService {
 
         message.setSenderId(userId);
         message.setReceiverId(receiverId);
+        message.setGroupId(message.getGroupId());
         message.setContent(message.getContent());
-        message.setType(message.getType());
+        message.setType(MessageType.FORWARD);
+        message.setRecalled(message.isRecalled());
+        message.setForwardedFrom(new MessageReference(messageId, message.getSenderId()));
         message.setImageUrls(message.getImageUrls());
         message.setVideoInfos(message.getVideoInfos());
-        message.setForwardedFrom(new MessageReference(messageId, message.getSenderId()));
         message.setStatus(MessageStatus.SENT);
         message.setCreatedAt(LocalDateTime.now());
         message.setUpdatedAt(LocalDateTime.now());
@@ -357,6 +361,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
+
     @Override
     public MessageResponse convertToMessageResponse(Message message) {
         return new MessageResponse(
@@ -394,6 +399,12 @@ public class MessageServiceImpl implements MessageService {
         if (userReceiver.isEmpty()) {
             throw new ResourceNotFoundException("User not found");
         }
+        if (userReceiver.get().getBlocks().contains(senderId)){
+            throw new ResourceNotFoundException("User blocked you");
+        }
+        if (userSender.get().getBlocks().contains(receiverId)){
+            throw new ResourceNotFoundException("You blocked user");
+        }
     }
 
     private void validateGroup(String groupId, String senderId) {
@@ -414,4 +425,6 @@ public class MessageServiceImpl implements MessageService {
             return false;
         }
     }
+
 }
+
