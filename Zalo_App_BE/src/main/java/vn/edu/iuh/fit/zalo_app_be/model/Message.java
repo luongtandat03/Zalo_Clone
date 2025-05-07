@@ -39,7 +39,7 @@ public class Message {
     private String groupId;
     private String content;
     private MessageType type;
-    private boolean recalled = false;
+    private boolean recalled;
     private List<String> imageUrls;
     private List<Map<String, String>> videoInfos; // For video {url, thumbnail}
     private Map<String, LocalDateTime> deleteBy; // {userId , time}
@@ -48,7 +48,7 @@ public class Message {
     private String thumbnail; // thumbnail of video
     private String publicId; // public id of file in cloudinary
     private String contentAfterRecallOrDelete; // content after recall or delete
-    private boolean isPinned = false; // pinned message
+    private boolean isPinned; // pinned message
     private LocalDateTime pinnedAt;
     @CreatedDate
     @Indexed
@@ -56,7 +56,7 @@ public class Message {
     @LastModifiedDate
     private LocalDateTime updatedAt;
     private MessageStatus status = MessageStatus.SENT;
-    private boolean isRead = false;
+    private boolean isRead;
     private String replyToMessageId;
 
 }

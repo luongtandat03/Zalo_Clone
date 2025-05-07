@@ -80,7 +80,7 @@ public class FriendServiceImpl implements FriendService {
     public FriendResponse getFriendById(String friendId) {
         Optional<User> user = userRepository.findById(friendId);
         // Check if the friend is not found
-        if(user.isEmpty()) {
+        if (user.isEmpty()) {
             log.error("Friend not found with id: {}", friendId);
             throw new ResourceNotFoundException("Friend not found with id: " + friendId);
         }
@@ -108,8 +108,8 @@ public class FriendServiceImpl implements FriendService {
         throwIf(receiver.isEmpty(), "Receiver not found with id: {}", "Receiver not found with id: " + receiverId, HttpStatus.NOT_FOUND);
 
         // Check if the receiver is sending request to sender
-        Friend existingFriendRequest = friendRepository.findBySenderIdAndReceiverIdAndStatus(senderId, receiverId, FriendStatus.PENDING);
-        if (existingFriendRequest != null) {
+        Optional<Friend> existingFriendRequest = friendRepository.findBySenderIdAndReceiverIdAndStatus(senderId, receiverId, FriendStatus.PENDING);
+        if (existingFriendRequest.isEmpty()) {
             log.error("Friend request already sent from {} to {}", senderId, receiverId);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Friend request already sent");
         }
@@ -130,14 +130,15 @@ public class FriendServiceImpl implements FriendService {
         friendRequest.setUpdatedAt(LocalDateTime.now());
 
         friendRepository.save(friendRequest);
-        webSocketService.notifyFriendRequest(senderId, receiver.get().getUsername());
+
+        webSocketService.notifyFriendRequest(senderId, receiverId);
         log.info("Friend request sent to {} to {}", senderId, receiverId);
     }
 
     @Override
     public void acceptFriendRequest(String requestId) {
         String userId = getCurrentUserId();
-        Optional<Friend> friendRequest  = friendRepository.findById(requestId);
+        Optional<Friend> friendRequest = friendRepository.findById(requestId);
 
         // Check if request is not found
         throwIf(friendRequest.isEmpty(), "Friend request not found with id: {}", "Friend request not found with id: " + requestId, HttpStatus.NOT_FOUND);
@@ -155,6 +156,7 @@ public class FriendServiceImpl implements FriendService {
 
         Optional<User> user = findUserById(senderId, "User not found with id: " + userId);
         Optional<User> friend = findUserById(receiverId, "Friend not found with id: " + receiverId);
+
         user.get().getFriends().add(receiverId);
         friend.get().getFriends().add(senderId);
         userRepository.save(user.get());
@@ -168,13 +170,16 @@ public class FriendServiceImpl implements FriendService {
     @Override
     public void cancelFriendRequest(String receiverId) {
         String userId = getCurrentUserId();
-        Optional<Friend> friendRequest = findRequestByFriendId(receiverId);
+        Optional<Friend> friendRequest = friendRepository.findBySenderIdAndReceiverIdAndStatus(userId, receiverId, FriendStatus.PENDING);
 
+        // Check if the friend request is not found
+        throwIf(friendRequest.isEmpty(), "Friend request not found with id: {}", "Friend request not found with id: " + receiverId, HttpStatus.NOT_FOUND);
         // Check if the friend request is not pending
         throwIf(friendRequest.get().getStatus() != FriendStatus.PENDING, "Friend request is not pending", "Friend request is not pending", HttpStatus.BAD_REQUEST);
 
         // Delete the friend request
         friendRepository.delete(friendRequest.get());
+        webSocketService.notifyFriendRequestRejected(userId, friendRequest.get().getSenderId());
         log.info("Friend request cancelled from {} to {}", userId, receiverId);
     }
 
@@ -193,6 +198,7 @@ public class FriendServiceImpl implements FriendService {
         userRepository.save(user.get());
         userRepository.save(friend.get());
 
+        webSocketService.notifyFriendDeleted(user.get().getId(), friend.get().getId());
         log.info("Friend deleted from {} to {}", userId, friendId);
     }
 
@@ -207,7 +213,7 @@ public class FriendServiceImpl implements FriendService {
         // Check if the user is already blocked
         throwIf(user.get().getBlocks().contains(blockedUserId), "User is already blocked", "User is already blocked", HttpStatus.BAD_REQUEST);
 
-        if(user.get().getFriends().contains(blockedUserId)){
+        if (user.get().getFriends().contains(blockedUserId)) {
             user.get().getFriends().remove(userId);
             blockedUser.get().getFriends().remove(blockedUserId);
             userRepository.save(blockedUser.get());
@@ -215,8 +221,10 @@ public class FriendServiceImpl implements FriendService {
 
         // Add the blocked user to the user's blocks list
         user.get().getBlocks().add(blockedUserId);
+
         userRepository.save(user.get());
 
+        webSocketService.notifyUserBlocked(user.get().getId(), blockedUserId);
         log.info("User {} blocked user {}", userId, blockedUserId);
     }
 
@@ -233,6 +241,7 @@ public class FriendServiceImpl implements FriendService {
         user.get().getBlocks().remove(blockedUserId);
         userRepository.save(user.get());
 
+        webSocketService.notifyUserUnblocked(user.get().getId(), blockedUserId);
         log.info("User {} unblocked user {}", userId, blockedUserId);
     }
 
@@ -252,15 +261,6 @@ public class FriendServiceImpl implements FriendService {
             throw new ResourceNotFoundException(errorMessage);
         }
         return userOptional;
-    }
-
-    private Optional<Friend> findRequestByFriendId(String friendId) {
-        Optional<Friend> friendRequest = friendRepository.findById(friendId);
-        if (friendRequest.isEmpty()) {
-            log.error("Friend request not found with id: {}", friendId);
-            throw new ResourceNotFoundException("Friend request not found with id: " + friendId);
-        }
-        return friendRequest;
     }
 
     private void throwIf(boolean condition, String logMessage, String errorMessage, HttpStatus status) {
