@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.model.MessageReference;
 
 import java.time.LocalDateTime;
@@ -39,12 +40,13 @@ public class MessageRequest {
     private boolean recalled;
     private boolean isPinned;
     private LocalDateTime pinnedAt;
+    private MessageResponse response;
 
-    public MessageRequest(String senderId, String receiverId, String content, String groupId, MessageType type) {
+    public MessageRequest(String senderId, String receiverId, String groupId, MessageType messageType, MessageResponse response) {
         this.senderId = senderId;
         this.receiverId = receiverId;
-        this.content = content;
         this.groupId = groupId;
-        this.type = type;
+        this.type = messageType;
+        this.response = response;
     }
 }

@@ -72,7 +72,7 @@ public class MessageServiceImpl implements MessageService {
             message.setVideoInfos(request.getVideoInfos());
             message.setReplyToMessageId(request.getReplyToMessageId());
             message.setForwardedFrom(request.getForwardedFrom() != null ? new MessageReference(
-                    request.getForwardedFrom().getMessageId(), request.getForwardedFrom().getOriginalSenderId()) : null);
+                    request.getForwardedFrom().getMessageId(), request.getForwardedFrom().getOriginalSenderId(), message.getForwardedFrom().getForwardedAt()) : null);
             message.setThumbnail(request.getThumbnail());
             message.setStatus(MessageStatus.SENT);
             message.setCreatedAt(LocalDateTime.now());
@@ -243,31 +243,24 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public void forwardMessage(String messageId, String userId, String receiverId) {
+    public MessageResponse forwardMessage(String messageId, String userId, String receiverId, String groupId) {
         validateUser(userId, receiverId);
         Optional<Message> messageOptional = messageRepository.findById(messageId);
         if (messageOptional.isEmpty()) {
             throw new ResourceNotFoundException("Message not found");
         }
+        if(groupId != null) {
+            if(groupRepository.findById(groupId).isEmpty()){
+                throw new ResourceNotFoundException("Group not found");
+            }
+        }
 
-        Message message = messageOptional.get();
+        MessageResponse response = convertToMessageResponse(messageOptional.get());
+        response.setForwardedFrom((new MessageReference(messageId, userId, LocalDateTime.now())));
 
-        message.setSenderId(userId);
-        message.setReceiverId(receiverId);
-        message.setGroupId(message.getGroupId());
-        message.setContent(message.getContent());
-        message.setType(MessageType.FORWARD);
-        message.setRecalled(message.isRecalled());
-        message.setForwardedFrom(new MessageReference(messageId, message.getSenderId()));
-        message.setImageUrls(message.getImageUrls());
-        message.setVideoInfos(message.getVideoInfos());
-        message.setStatus(MessageStatus.SENT);
-        message.setCreatedAt(LocalDateTime.now());
-        message.setUpdatedAt(LocalDateTime.now());
-        message.setRead(false);
-
-        messageRepository.save(message);
         log.info("Message forwarded: {} for sender: {}", messageId, userId);
+
+        return response;
     }
 
     @Override
@@ -381,7 +374,7 @@ public class MessageServiceImpl implements MessageService {
                 message.getDeleteBy() != null ? new ArrayList<>(message.getDeleteBy().keySet()) : null,
                 message.getStatus(),
                 message.getForwardedFrom() != null ? new MessageReference(
-                        message.getForwardedFrom().getMessageId(), message.getForwardedFrom().getOriginalSenderId()) : null,
+                        message.getForwardedFrom().getMessageId(), message.getForwardedFrom().getOriginalSenderId(), message.getForwardedFrom().getForwardedAt()) : null,
                 message.isRead(),
                 message.getCreatedAt(),
                 message.getUpdatedAt(),
@@ -399,10 +392,10 @@ public class MessageServiceImpl implements MessageService {
         if (userReceiver.isEmpty()) {
             throw new ResourceNotFoundException("User not found");
         }
-        if (userReceiver.get().getBlocks().contains(senderId)){
+        if (userReceiver.get().getBlocks().contains(senderId)) {
             throw new ResourceNotFoundException("User blocked you");
         }
-        if (userSender.get().getBlocks().contains(receiverId)){
+        if (userSender.get().getBlocks().contains(receiverId)) {
             throw new ResourceNotFoundException("You blocked user");
         }
     }

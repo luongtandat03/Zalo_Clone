@@ -83,7 +83,7 @@ public class ChatController {
             }
 
             messageService.recallMessage(messageId, userId);
-            if(request.getGroupId() != null) {
+            if (request.getGroupId() != null) {
                 webSocketService.notifyGroupRecall(messageId, userId, request.getGroupId());
             } else {
                 webSocketService.notifyRecall(messageId, userId);
@@ -110,7 +110,7 @@ public class ChatController {
             }
 
             messageService.deleteMessage(messageId, userId);
-            if(request.getGroupId() != null) {
+            if (request.getGroupId() != null) {
                 webSocketService.notifyGroupDelete(messageId, userId, request.getGroupId());
             } else {
                 webSocketService.notifyDelete(messageId, userId);
@@ -131,18 +131,22 @@ public class ChatController {
         String receiverId = request.getReceiverId();
         String groupId = request.getGroupId();
 
-        log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}",
-                messageId, userId, receiverId);
+        log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}, groupId={}",
+                messageId, userId, receiverId, groupId);
         try {
             if (messageId == null || userId == null || receiverId == null) {
                 throw new RuntimeException("Invalid forward message request: missing messageId, userId or receiverId");
+            } else if (groupId != null) {
+                if (!groupId.equals(request.getGroupId())) {
+                    throw new RuntimeException("Invalid forward message request: groupId not match");
+                }
             }
 
-            messageService.forwardMessage(messageId, userId, receiverId);
-            if(groupId != null) {
-                webSocketService.sendGroupMessage(new MessageRequest(userId, receiverId, request.getContent(), groupId, MessageType.FORWARD));
-            }else {
-                webSocketService.sendMessage(new MessageRequest(userId, receiverId, request.getContent(), null  , MessageType.FORWARD));
+            MessageResponse response = messageService.forwardMessage(messageId, userId, receiverId, groupId);
+            if (groupId != null) {
+                webSocketService.sendGroupMessage(new MessageRequest(userId, null, groupId, MessageType.FORWARD, response));
+            } else {
+                webSocketService.sendMessage(new MessageRequest(userId, receiverId, null, MessageType.FORWARD, response));
             }
             log.info("Message forwarded: messageId={}, userId={}, receiverId={}, groupId={}",
                     messageId, userId, receiverId, groupId);

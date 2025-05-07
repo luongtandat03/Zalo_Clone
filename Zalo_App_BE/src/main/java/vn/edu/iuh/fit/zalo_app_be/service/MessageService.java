@@ -32,7 +32,7 @@ public interface MessageService {
 
     void deleteMessage(String messageId, String userId);
 
-    void forwardMessage(String messageId, String userId, String receiverId);
+    MessageResponse forwardMessage(String messageId, String userId, String receiverId, String groupId);
 
     void readMessage(String messageId, String receiverId);
 

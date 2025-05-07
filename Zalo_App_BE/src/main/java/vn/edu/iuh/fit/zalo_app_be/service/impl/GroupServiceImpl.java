@@ -279,13 +279,6 @@ public class GroupServiceImpl implements GroupService {
         return convertToGroupResponse(group.get());
     }
 
-    private void validateUser(String userId) {
-        Optional<User> user = userRepository.findById(userId);
-        if (user.isEmpty()) {
-            throw new ResourceNotFoundException("User not found");
-        }
-    }
-
     private void validateGroup(String name, List<String> memberIds, String createId) {
         if (name == null || name.isEmpty()) {
             throw new ResourceNotFoundException("Group name cannot be empty");
