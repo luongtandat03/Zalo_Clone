@@ -33,8 +33,12 @@ public class ChatController {
         log.debug("Processing chat request: sender={}, receiver={}",
                 request.getSenderId(), request.getReceiverId());
         try {
-            if (request.getSenderId() == null || request.getReceiverId() == null) {
-                throw new RuntimeException("Invalid message request: missing senderId or receiverId");
+            if (request.getSenderId() == null) {
+                throw new RuntimeException("Invalid message request: missing senderId");
+            }
+
+            if (request.getReceiverId() == null && request.getGroupId() == null) {
+                throw new RuntimeException("Invalid message request: missing receiverId or groupId");
             }
 
             MessageResponse response = messageService.saveMessage(request);
@@ -154,7 +158,6 @@ public class ChatController {
         String messageId = request.getId();
         String senderId = request.getSenderId();
         String receiverId = request.getReceiverId();
-
 
         log.debug("Processing read message request: messageId={}, userId={}",
                 messageId, receiverId);

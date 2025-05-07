@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import vn.edu.iuh.fit.zalo_app_be.common.FriendStatus;
+import vn.edu.iuh.fit.zalo_app_be.common.CallType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.MessageSendException;
@@ -68,15 +68,63 @@ public class WebSocketServiceImpl implements WebSocketService {
     }
 
     @Override
-    public void notifyFriendRequest(String receiverId, String senderUsername) {
-        template.convertAndSendToUser(receiverId, "/queue/notifications", Map.of("type", FriendStatus.PENDING, "sender", senderUsername));
-        log.info("Friend request notification sent to {} from {}", receiverId, senderUsername);
+    public void notifyFriendRequest(String senderId, String receiverId) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("senderId", senderId);
+        notification.put("receiverId", receiverId);
+
+        template.convertAndSendToUser(receiverId, "/queue/friend/request", notification);
+        log.info("Friend request notification sent to {} from {}", senderId, receiverId);
     }
 
     @Override
-    public void notifyFriendRequestAccepted(String senderId, String receiverUsername) {
-        template.convertAndSendToUser(senderId, "queue/notifications", Map.of("type", FriendStatus.ACCEPTED, "receiver", receiverUsername));
-        log.info("Friend request accepted notification sent to {} from {}", senderId, receiverUsername);
+    public void notifyFriendRequestAccepted(String senderId, String receiverId) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("senderId", senderId);
+        notification.put("receiverId", receiverId);
+
+        template.convertAndSendToUser(receiverId, "queue/friend/request/accepted", notification);
+        log.info("Friend request accepted notification sent to {} from {}", receiverId, senderId);
+    }
+
+    @Override
+    public void notifyFriendRequestRejected(String userId, String receiverId) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("userId", userId);
+        notification.put("receiverId", receiverId);
+
+        template.convertAndSendToUser(receiverId, "/queue/friend/request/rejected", notification);
+        log.info("Friend request rejected notification sent to {} from {}", receiverId, userId);
+    }
+
+    @Override
+    public void notifyFriendDeleted(String userId, String friendId) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("userId", userId);
+        notification.put("friendId", friendId);
+
+        template.convertAndSendToUser(friendId, "/queue/friend/deleted", notification);
+        log.info("Friend deleted notification sent to {} from {}", friendId, userId);
+    }
+
+    @Override
+    public void notifyUserBlocked(String userId, String blockedUserId) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("userId", userId);
+        notification.put("blockedUserId", blockedUserId);
+
+        template.convertAndSendToUser(blockedUserId, "/queue/user/blocked", notification);
+        log.info("User blocked notification sent to {} from {}", blockedUserId, userId);
+    }
+
+    @Override
+    public void notifyUserUnblocked(String userId, String unblockedUserId) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("userId", userId);
+        notification.put("unblockedUserId", unblockedUserId);
+
+        template.convertAndSendToUser(unblockedUserId, "/queue/user/unblocked", notification);
+        log.info("User unblocked notification sent to {} from {}", unblockedUserId, userId);
     }
 
     @Override
@@ -184,5 +232,101 @@ public class WebSocketServiceImpl implements WebSocketService {
             log.info("Group deletion notification sent to {}: {}", memberId, group.getName());
         }
     }
+
+    @Override
+    public void notifyCallInitiated(String callId, CallType callType, String callerId, String receiverId, Object spdOffer) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("callId", callId);
+        notification.put("callType", callType);
+        notification.put("callerId", callerId);
+        notification.put("spdOffer", spdOffer);
+
+        template.convertAndSendToUser(receiverId, "/queue/call", notification);
+
+    }
+
+    @Override
+    public void notifyGroupInitiated(String callId, CallType callType, String callerId, Group group, Object sqdOffer) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("callId", callId);
+        notification.put("callType", callType);
+        notification.put("callerId", callerId);
+        notification.put("groupId", group.getId());
+        notification.put("spdOffer", sqdOffer);
+
+        for (String memberId : group.getMemberIds()) {
+            if (!memberId.equals(callerId)) {
+                template.convertAndSendToUser(memberId, "/queue/call", notification);
+            }
+        }
+    }
+
+    @Override
+    public void notifyCallAnswer(String callId, String callerId, Object spdAnswer) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("callId", callId);
+        notification.put("spdAnswer", spdAnswer);
+
+        template.convertAndSendToUser(callerId, "/queue/call/answer", notification);
+    }
+
+    @Override
+    public void notifyGroupCallAnswer(String callId, String callerId, Group group, Object spdAnswer) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("callId", callId);
+        notification.put("callerId", callerId);
+        notification.put("spdAnswer", spdAnswer);
+
+        for (String memberId : group.getMemberIds()) {
+            if (!memberId.equals(callerId)) {
+                template.convertAndSendToUser(memberId, "/queue/answer", notification);
+            }
+        }
+    }
+
+    @Override
+    public void notifyCallEnd(String callId, String receiverId) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("callId", callId);
+
+        template.convertAndSendToUser(receiverId, "/queue/call/end", notification);
+    }
+
+    @Override
+    public void notifyGroupCallEnd(String callId, String userId, Group group) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("callId", callId);
+        notification.put("userId", userId);
+
+        for (String memberId : group.getMemberIds()) {
+            if (!memberId.equals(userId)) {
+                template.convertAndSendToUser(memberId, "/queue/end", notification);
+            }
+        }
+    }
+
+    @Override
+    public void notifyIceCandidate(String callId, String receiverId, Object candidate) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("callId", callId);
+        notification.put("candidate", candidate);
+
+        template.convertAndSendToUser(receiverId, "/queue/call/candidate", notification);
+    }
+
+    @Override
+    public void notifyGroupIceCandidate(String callId, String userId, Group group, Object candidate) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("callId", callId);
+        notification.put("userId", userId);
+        notification.put("candidate", candidate);
+
+        for (String memberId : group.getMemberIds()) {
+            if (!memberId.equals(userId)) {
+                template.convertAndSendToUser(memberId, "/queue/candidate", notification);
+            }
+        }
+    }
+
 
 }

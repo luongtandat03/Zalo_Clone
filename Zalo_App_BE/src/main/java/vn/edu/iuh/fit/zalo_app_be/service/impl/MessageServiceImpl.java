@@ -254,11 +254,13 @@ public class MessageServiceImpl implements MessageService {
 
         message.setSenderId(userId);
         message.setReceiverId(receiverId);
+        message.setGroupId(message.getGroupId());
         message.setContent(message.getContent());
-        message.setType(message.getType());
+        message.setType(MessageType.FORWARD);
+        message.setRecalled(message.isRecalled());
+        message.setForwardedFrom(new MessageReference(messageId, message.getSenderId()));
         message.setImageUrls(message.getImageUrls());
         message.setVideoInfos(message.getVideoInfos());
-        message.setForwardedFrom(new MessageReference(messageId, message.getSenderId()));
         message.setStatus(MessageStatus.SENT);
         message.setCreatedAt(LocalDateTime.now());
         message.setUpdatedAt(LocalDateTime.now());
@@ -320,10 +322,10 @@ public class MessageServiceImpl implements MessageService {
         List<Message> pinnedMessages;
         if (groupId != null) {
             validateGroup(groupId, userId);
-            pinnedMessages = messageRepository.findByGroupIdAndPinned(groupId, true);
+            pinnedMessages = messageRepository.findByGroupIdAndIsPinned(groupId, true);
         } else {
             validateUser(userId, otherUserId);
-            pinnedMessages = messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderIdAndPinned(userId, otherUserId, userId, otherUserId, true);
+            pinnedMessages = messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderIdAndIsPinned(userId, otherUserId, userId, otherUserId, true);
         }
 
         return pinnedMessages
@@ -335,8 +337,6 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public List<MessageResponse> searchMessages(String userId, String otherUserId, String groupId, String keyword) {
-        validateUser(userId, otherUserId);
-
         if (groupId != null) {
             validateGroup(groupId, userId);
             return messageRepository.findByGroupIdAndContentContaining(groupId, keyword)
@@ -347,17 +347,20 @@ public class MessageServiceImpl implements MessageService {
                     .map(this::convertToMessageResponse)
                     .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
                     .collect(Collectors.toList());
+        } else {
+            validateUser(userId, otherUserId);
+            return messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(userId, otherUserId, userId, otherUserId)
+                    .stream()
+                    .filter(msg ->
+                            (msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
+                                    || (msg.getFileName() != null && msg.getFileName().toLowerCase().contains(keyword.toLowerCase()))
+                    )
+                    .map(this::convertToMessageResponse)
+                    .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
+                    .collect(Collectors.toList());
         }
-        return messageRepository.findBySenderIdAndReceiverIdOrReceiverIdAndSenderId(userId, otherUserId, userId, otherUserId)
-                .stream()
-                .filter(msg ->
-                        (msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
-                                || (msg.getFileName() != null && msg.getFileName().toLowerCase().contains(keyword.toLowerCase()))
-                )
-                .map(this::convertToMessageResponse)
-                .sorted(Comparator.comparing(MessageResponse::getCreateAt).reversed())
-                .collect(Collectors.toList());
     }
+
 
     @Override
     public MessageResponse convertToMessageResponse(Message message) {
@@ -395,6 +398,12 @@ public class MessageServiceImpl implements MessageService {
         Optional<User> userReceiver = userRepository.findById(receiverId);
         if (userReceiver.isEmpty()) {
             throw new ResourceNotFoundException("User not found");
+        }
+        if (userReceiver.get().getBlocks().contains(senderId)){
+            throw new ResourceNotFoundException("User blocked you");
+        }
+        if (userSender.get().getBlocks().contains(receiverId)){
+            throw new ResourceNotFoundException("You blocked user");
         }
     }
 
