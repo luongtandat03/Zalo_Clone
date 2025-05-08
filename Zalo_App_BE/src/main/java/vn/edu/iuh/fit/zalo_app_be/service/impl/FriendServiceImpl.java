@@ -131,8 +131,10 @@ public class FriendServiceImpl implements FriendService {
 
         friendRepository.save(friendRequest);
 
-        webSocketService.notifyFriendRequest(senderId, receiverId);
         log.info("Friend request sent to {} to {}", senderId, receiverId);
+
+        webSocketService.notifyFriendRequest(senderId, receiverId);
+
     }
 
     @Override

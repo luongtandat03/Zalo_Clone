@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import vn.edu.iuh.fit.zalo_app_be.common.CallType;
+import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.MessageSendException;
@@ -27,7 +28,6 @@ import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +40,10 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public void sendMessage(MessageRequest request) {
+        if (request.getType() == MessageType.FORWARD) {
+            template.convertAndSendToUser(request.getReceiverId(), "/queue/forward", request.getContent());
+            log.info("Forwarded message from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
+        }
         try {
             template.convertAndSendToUser(request.getSenderId(), "/queue/messages", request);
             template.convertAndSendToUser(request.getReceiverId(), "/queue/messages", request);
@@ -53,12 +57,11 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public void sendGroupMessage(MessageRequest request) {
+        if(request.getType() == MessageType.FORWARD) {
+            template.convertAndSend("/topic/group" + request.getGroupId(), request.getResponse());
+            log.info("Forwarded message from {} to group {}: {}", request.getSenderId(), request.getGroupId(), request.getContent());
+        }
         try {
-            Optional<Group> group = groupRepository.findById(request.getGroupId());
-            if (group.isEmpty()) {
-                log.error("Group not found: {}", request.getGroupId());
-                throw new MessageSendException("Group not found");
-            }
             template.convertAndSend("/topic/group/" + request.getGroupId(), request);
             log.info("Group message sent from {} to group {}: {}", request.getSenderId(), request.getGroupId(), request.getContent());
         } catch (Exception e) {
