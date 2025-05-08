@@ -21,7 +21,7 @@ public interface WebSocketService {
 
     void sendGroupMessage(MessageRequest request);
 
-    void notifyFriendRequest(String receiverId, String senderUsername);
+    void notifyFriendRequest(String receiverId, String senderId);
 
     void notifyFriendRequestAccepted(String sender, String receiverUsername);
 
@@ -42,6 +42,10 @@ public interface WebSocketService {
     void notifyGroupDelete(String messageId, String userId, String groupId);
 
     void notifyRead(String messageId, String userId);
+
+    void notifyEdit(String messageId, String userId, String content);
+
+    void notifyGroupEdit(String messageId, String userId, String groupId);
 
     void notifyPin(String messageId, String userId);
 

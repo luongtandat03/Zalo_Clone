@@ -134,7 +134,7 @@ public class ChatController {
         log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}, groupId={}",
                 messageId, userId, receiverId, groupId);
         try {
-            if (messageId == null || userId == null || receiverId == null) {
+            if (messageId == null || userId == null || (receiverId == null && groupId == null)) {
                 throw new RuntimeException("Invalid forward message request: missing messageId, userId or receiverId");
             } else if (groupId != null) {
                 if (!groupId.equals(request.getGroupId())) {
@@ -181,6 +181,34 @@ public class ChatController {
         }
     }
 
+    @MessageMapping("/chat.edit")
+    public void editMessage(@Payload MessageRequest request) {
+        String messageId = request.getId();
+        String userId = request.getSenderId();
+        String content = request.getContent();
+        String groupId = request.getGroupId();
+
+        log.debug("Processing edit message request: messageId={}, userId={}, content={}, groupId={}",
+                messageId, userId, content, groupId);
+        try {
+            if (messageId == null || userId == null || content == null) {
+                throw new RuntimeException("Invalid edit message request: missing messageId, userId or content");
+            }
+
+            messageService.editMessage(messageId, userId, content);
+            if (request.getGroupId() != null) {
+                webSocketService.notifyGroupEdit(messageId, userId, request.getGroupId());
+            } else {
+                webSocketService.notifyEdit(messageId, userId, content);
+            }
+            log.info("Message edited: messageId={}, userId={}, content={}",
+                    messageId, userId, content);
+        } catch (Exception e) {
+            log.error("Error processing edit message: messageId={}, userId={}, error={}",
+                    messageId, userId, e.getMessage());
+            throw e;
+        }
+    }
     @MessageMapping("/chat.pin")
     public void pinMessage(@Payload MessageRequest request) {
         String messageId = request.getId();

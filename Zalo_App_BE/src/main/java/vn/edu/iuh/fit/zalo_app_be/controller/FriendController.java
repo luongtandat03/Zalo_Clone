@@ -30,11 +30,15 @@ import java.util.Map;
 public class FriendController {
     private final FriendService friendService;
 
-    @PostMapping("/send-request/{receiverId}")
+    @PostMapping("/send-request/{phone}")
     @Operation(summary = "Send friend request", description = "Send a friend request to another user")
-    public ResponseEntity<Map<String, String>> sendFriendRequest(@PathVariable String receiverId) {
-        log.info("Sending friend request to {}", receiverId);
-        friendService.sendFriendRequest(receiverId);
+    public ResponseEntity<Map<String, String>> sendFriendRequest(@PathVariable String phone) {
+        log.info("Sending friend request to {}", phone);
+        if (phone == null || phone.isEmpty()) {
+            log.info("phone is null or empty");
+            return ResponseEntity.badRequest().body(Map.of("message", "phone cannot be null or empty"));
+        }
+        friendService.sendFriendRequest(phone);
         return ResponseEntity.ok(Map.of("message", "Friend request sent"));
     }
 

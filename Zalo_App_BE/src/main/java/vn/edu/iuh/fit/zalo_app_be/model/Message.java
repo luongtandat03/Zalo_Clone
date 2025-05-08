@@ -47,7 +47,7 @@ public class Message {
     private String fileName; // original name of file
     private String thumbnail; // thumbnail of video
     private String publicId; // public id of file in cloudinary
-    private String contentAfterRecallOrDelete; // content after recall or delete
+    private String contentAfterRecallOrDeleteOrEdit; // content after recall or delete
     private boolean isPinned; // pinned message
     private LocalDateTime pinnedAt;
     @CreatedDate
@@ -58,6 +58,6 @@ public class Message {
     private MessageStatus status = MessageStatus.SENT;
     private boolean isRead;
     private String replyToMessageId;
-
+    private boolean editId;
 }
 

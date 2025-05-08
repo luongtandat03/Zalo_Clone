@@ -97,20 +97,28 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
-    public void sendFriendRequest(String receiverId) {
+    public void sendFriendRequest(String phone) {
         String senderId = getCurrentUserId();
+
+        User receiverUser = userRepository.findByPhone(phone);
+
+        String receiverId = receiverUser.getId();
 
         // Check if the sender and receiver are the same
         throwIf(senderId.equals(receiverId), "You cannot send a friend request to yourself", "You cannot send a friend request to yourself", HttpStatus.BAD_REQUEST);
 
+        if (receiverId == null || receiverId.isEmpty()) {
+            log.error("Receiver ID is null or empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Receiver ID is null or empty");
+        }
         // Check if the receiver exists
         Optional<User> receiver = userRepository.findById(receiverId);
-        throwIf(receiver.isEmpty(), "Receiver not found with id: {}", "Receiver not found with id: " + receiverId, HttpStatus.NOT_FOUND);
+        throwIf(receiver.isEmpty(), "Receiver not found with id: {}", "Receiver not found with id: " + phone, HttpStatus.NOT_FOUND);
 
         // Check if the receiver is sending request to sender
-        Optional<Friend> existingFriendRequest = friendRepository.findBySenderIdAndReceiverIdAndStatus(senderId, receiverId, FriendStatus.PENDING);
-        if (existingFriendRequest.isEmpty()) {
-            log.error("Friend request already sent from {} to {}", senderId, receiverId);
+        Optional<Friend> existingFriendRequest = friendRepository.findBySenderIdAndReceiverIdAndStatus(senderId, phone, FriendStatus.PENDING);
+        if (existingFriendRequest.isPresent()) {
+            log.error("Friend request already sent from {} to {}", senderId, phone);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Friend request already sent");
         }
 
@@ -131,8 +139,9 @@ public class FriendServiceImpl implements FriendService {
 
         friendRepository.save(friendRequest);
 
-        webSocketService.notifyFriendRequest(senderId, receiverId);
         log.info("Friend request sent to {} to {}", senderId, receiverId);
+
+        webSocketService.notifyFriendRequest(senderId, receiverId);
     }
 
     @Override
@@ -162,7 +171,7 @@ public class FriendServiceImpl implements FriendService {
         userRepository.save(user.get());
         userRepository.save(friend.get());
 
-        webSocketService.notifyFriendRequestAccepted(user.get().getId(), friend.get().getUsername());
+        webSocketService.notifyFriendRequestAccepted(user.get().getId(), friend.get().getId());
 
         log.info("Friend request accepted from {} to {}", userId, receiverId);
     }
@@ -189,6 +198,9 @@ public class FriendServiceImpl implements FriendService {
         Optional<User> user = findUserById(userId, "User not found with id: " + userId);
         Optional<User> friend = findUserById(friendId, "Friend not found with id: " + friendId);
 
+        Optional<Friend> friendRequest = friendRepository.findBySenderIdAndReceiverIdAndStatus(userId, friendId, FriendStatus.ACCEPTED);
+        // Check if the friend request is not found
+        throwIf(friendRequest.isEmpty(), "Friend request not found with id: {}", "Friend request not found with id: " + friendId, HttpStatus.NOT_FOUND);
         // Check if the user and friend are not friends
         throwIf(!user.get().getFriends().contains(friendId), "User and friend are not friends", "User and friend are not friends", HttpStatus.BAD_REQUEST);
 

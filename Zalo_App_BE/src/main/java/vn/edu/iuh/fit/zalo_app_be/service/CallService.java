@@ -18,13 +18,13 @@ import java.util.List;
 
 public interface CallService {
     // Initiate a call
-    void initiateCall(String callerId, String receiverId, CallType callType, String groupId, Object spdOffer);
+    Call initiateCall(String callerId, String receiverId, CallType callType, String groupId, Object spdOffer);
     // Answer a call
-    void answerCall(String callId, String receiverId, Object spdAnswer);
+    Call answerCall(String callId, String receiverId, Object spdAnswer);
     // End a call
-    void endCall(String callId, String userId);
+    Call endCall(String callId, String userId);
     // Send ICE candidate
     void sendIceCandidate(String callId, String receiverId, Object candidate);
     // Get call history
-    List<Call> getCallHistory();
+    List<Call> getCallHistory(String userId);
 }
