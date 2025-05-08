@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, Component } from "react";
-import { ThemeProvider, styled, createTheme } from "@mui/material/styles";
+import { ThemeProvider, styled } from "@mui/material/styles";
 import { CssBaseline, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Button, Checkbox, List, ListItem, ListItemText } from '@mui/material';
 import { Box, Typography, IconButton, Menu, MenuItem, Snackbar, Alert } from "@mui/material";
 import { BiUserPlus, BiGroup, BiDotsVerticalRounded } from "react-icons/bi";
@@ -12,6 +12,7 @@ import ProfileModal from "../components/Home/ProfileModal";
 import { fetchUserProfile, fetchFriendsList, sendFriendRequest, fetchPendingFriendRequests, acceptFriendRequest } from "../api/user";
 import { getChatHistory, getGroupChatHistory, connectWebSocket, disconnectWebSocket } from "../api/messageApi";
 import { createGroup, fetchUserGroups } from "../api/groupApi";
+import { zaloTheme } from "../theme/theme";
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -41,21 +42,6 @@ class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#0088cc",
-      light: "#35a3e0",
-      dark: "#006699",
-    },
-    secondary: {
-      main: "#0068ff",
-      light: "#339aff",
-      dark: "#004bb5",
-    },
-  },
-});
 
 const RootContainer = styled(Box)(({ theme }) => ({
   display: "flex",
@@ -583,7 +569,7 @@ const Home = () => {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={zaloTheme}>
         <CssBaseline />
         <RootContainer>
           <NavSidebar
