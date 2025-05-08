@@ -4,7 +4,7 @@ import { BiSearch, BiX } from 'react-icons/bi';
 import { searchMessages } from '../api/messageApi';
 import { toast } from 'react-toastify';
 
-const SearchMessages = ({ userId, selectedContact, token, onSelectMessage }) => {
+  const  SearchMessages = ({ userId, selectedContact, token, onSelectMessage, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -39,10 +39,11 @@ const SearchMessages = ({ userId, selectedContact, token, onSelectMessage }) => 
   const handleClearSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
+    onClose();
   };
 
   return (
-    <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+    <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider' }}>
       <TextField
         fullWidth
         placeholder="Tìm kiếm tin nhắn"
@@ -67,14 +68,7 @@ const SearchMessages = ({ userId, selectedContact, token, onSelectMessage }) => 
         }}
         sx={{ mb: 2 }}
       />
-      <IconButton
-        color="primary"
-        onClick={handleSearch}
-        disabled={!searchQuery.trim() || isSearching}
-        sx={{ mb: 2 }}
-      >
-        <BiSearch />
-      </IconButton>
+      
       {searchResults.length > 0 && (
         <List sx={{ maxHeight: 200, overflow: 'auto' }}>
           {searchResults.map((message) => (

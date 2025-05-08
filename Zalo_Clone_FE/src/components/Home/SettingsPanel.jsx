@@ -1,9 +1,29 @@
-import React, { useState } from "react";
-import { Box, Typography, Button, TextField } from "@mui/material";
+import React from "react";
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Modal,
+  Fade,
+  Backdrop,
+} from "@mui/material";
 import { updatePassword } from "../../api/user";
 
-const SettingsPanel = () => {
-  const [showPasswordFields, setShowPasswordFields] = useState(false);
+const style = {
+  position: "absolute",
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  width: 400,
+  bgcolor: "background.paper",
+  borderRadius: 2,
+  boxShadow: 24,
+  p: 4,
+};
+
+const SettingsPanel = ({ open, onClose }) => {
+
 
   const handleUpdatePassword = async () => {
     const oldPassword = document.getElementById("currentPassword").value;
@@ -26,63 +46,59 @@ const SettingsPanel = () => {
     const result = await updatePassword(oldPassword, newPassword);
     if (result) {
       alert("Password updated successfully");
-      setShowPasswordFields(false);
+      onClose();
     } else {
       alert("Failed to update password");
     }
   };
 
   return (
-    <Box p={2}>
-      <Typography variant="h6" gutterBottom>
-        Account Settings
-      </Typography>
-      <Button
-        variant="contained"
-        color="primary"
-        fullWidth
-        onClick={() => setShowPasswordFields(!showPasswordFields)}
-        sx={{ mb: 2 }}
-      >
-        Change Password
-      </Button>
-      {showPasswordFields && (
-        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", width: "100%" }}>
-          <TextField
-            fullWidth
-            type="password"
-            label="Current Password"
-            margin="normal"
-            name="currentPassword"
-            id="currentPassword"
-          />
-          <TextField
-            fullWidth
-            type="password"
-            label="New Password"
-            margin="normal"
-            name="newPassword"
-            id="newPassword"
-          />
-          <TextField
-            fullWidth
-            type="password"
-            label="Confirm New Password"
-            margin="normal"
-            name="confirmPassword"
-            id="confirmPassword"
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            sx={{ mt: 2, minWidth: 200 }}
-            onClick={handleUpdatePassword}
-          >
-            Update Password
+    <Modal
+    open={open}
+    onClose={onClose}
+    closeAfterTransition
+    slots={{ backdrop: Backdrop }}
+    slotProps={{
+      backdrop: { timeout: 300 },
+    }}
+  >
+    <Fade in={open}>
+      <Box sx={style}>
+        <Typography variant="h6" mb={2}>
+          Change Password
+        </Typography>
+        <TextField
+          fullWidth
+          type="password"
+          label="Current Password"
+          margin="normal"
+          id="currentPassword"
+        />
+        <TextField
+          fullWidth
+          type="password"
+          label="New Password"
+          margin="normal"
+          id="newPassword"
+        />
+        <TextField
+          fullWidth
+          type="password"
+          label="Confirm New Password"
+          margin="normal"
+          id="confirmPassword"
+        />
+        <Box mt={2} display="flex" justifyContent="space-between">
+          <Button variant="outlined" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleUpdatePassword}>
+            Update
           </Button>
         </Box>
-      )}
-    </Box>
+      </Box>
+    </Fade>
+  </Modal>
   );
 };
 

@@ -1,19 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button, Divider } from '@mui/material';
-import { BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin } from 'react-icons/bi';
+import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button } from '@mui/material';
+import { BiSearch, BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin } from 'react-icons/bi';
 import Picker from 'emoji-picker-react';
-import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, pinMessage, unpinMessage, getPinnedMessages } from '../../api/messageApi';
+import { uploadFile, forwardMessage, getPinnedMessages } from '../../api/messageApi';
 import { fetchGroupMembers } from '../../api/groupApi';
-import { deleteFriend, blockUser, unblockUser } from '../../api/user';
 import SearchMessages from '../../components/SearchMessages';
+import FriendModal from './FriendModal';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { Phone, MessageCircle, Slash, Trash, Settings, LogOut } from "lucide-react";
-import SettingGroup from '../../components/Home/SettingGroup';
+
 const ChatContainer = styled(Box)(({ theme }) => ({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
+  backgroundColor: theme.palette.grey[100],
 }));
 
 const MessageContainer = styled(Box, {
@@ -26,10 +26,13 @@ const MessageContainer = styled(Box, {
   alignItems: 'center',
 }));
 
-const MessageBubble = styled(Paper)(({ isSender, theme }) => ({
+// Sửa lỗi isSender bằng cách thêm shouldForwardProp
+const MessageBubble = styled(Paper, {
+  shouldForwardProp: (prop) => prop !== 'isSender',
+})(({ isSender, theme }) => ({
   padding: '8px 16px',
-  backgroundColor: isSender ? theme.palette.primary.main : theme.palette.secondary.main,
-  color: isSender ? 'white' : 'inherit',
+  backgroundColor: isSender ? theme.palette.primary.main : '#ffffff',
+  color: isSender ? 'white' : 'black',
   borderRadius: 20,
   position: 'relative',
 }));
@@ -41,7 +44,23 @@ const PinIndicator = styled(Box)(({ theme }) => ({
   color: theme.palette.warning.main,
 }));
 
-const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputChange, onSendMessage, onProfileOpen, userId, contacts, token }) => {
+const ChatWindow = ({ 
+  selectedContact, 
+  messages, 
+  messageInput, 
+  onMessageInputChange, 
+  onSendMessage, 
+  onSendMessageToServer, 
+  onProfileOpen, 
+  onDeleteMessage, 
+  onRecallMessage,
+  onPinMessage,
+  onUnpinMessage,
+  userId, 
+  contacts, 
+  token,
+  isWebSocketConnected 
+}) => {
   const [localMessages, setLocalMessages] = useState(messages);
   const [isSending, setIsSending] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
@@ -52,69 +71,17 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const [isProfileOpen, setIsProfileOpen] = React.useState(false);
-  const [profileData, setProfileData] = React.useState(null);
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [isSettingGroupOpen, setIsSettingGroupOpen] = useState(false);
-  const handleOpenSettingGroup = () => {
-    setIsSettingGroupOpen(true);
-  };
-  const handleCloseSettingGroup = () => {
-    setIsSettingGroupOpen(false);
-  };
-  const handleBlockUser = async () => {
-    if (!selectedContact || !selectedContact.id) {
-      toast.error("Không tìm thấy người dùng để chặn");
-      return;
-    }
-
-    const confirmBlock = window.confirm(`Bạn có chắc chắn muốn chặn ${selectedContact.name || "người dùng này"} không?`);
-    if (!confirmBlock) return;
-
-    try {
-      const result = await blockUser(selectedContact.id);
-      if (result) {
-        setIsBlocked(true);
-        toast.success("Đã chặn người dùng thành công!");
-      } else {
-        toast.error("Chặn người dùng thất bại!");
-      }
-    } catch (error) {
-      console.error("Error blocking user:", error);
-      toast.error("Có lỗi xảy ra khi chặn người dùng");
-    }
-  };
-
-  const handleUnblockUser = async () => {
-    if (!selectedContact || !selectedContact.id) {
-      toast.error("Không tìm thấy người dùng để gỡ chặn");
-      return;
-    }
-
-    const confirmUnblock = window.confirm(`Bạn có chắc chắn muốn gỡ chặn ${selectedContact.name || "người dùng này"} không?`);
-    if (!confirmUnblock) return;
-
-    try {
-      const result = await unblockUser(selectedContact.id);
-      if (result) {
-        setIsBlocked(false);
-        toast.success("Đã gỡ chặn người dùng thành công!");
-      } else {
-        toast.error("Gỡ chặn người dùng thất bại!");
-      }
-    } catch (error) {
-      console.error("Error unblocking user:", error);
-      toast.error("Có lỗi xảy ra khi gỡ chặn người dùng");
-    }
-  };
+  const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
+  const [profileData, setProfileData] = useState(null);
+  const [showSearchBar, setShowSearchBar] = useState(false);
 
   const handleProfileOpen = () => {
     setProfileData(selectedContact);
-    setIsProfileOpen(true);
+    setIsFriendModalOpen(true);
   };
 
   const handleProfileClose = () => {
-    setIsProfileOpen(false);
+    setIsFriendModalOpen(false);
     setProfileData(null);
   };
 
@@ -186,6 +153,11 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       return;
     }
 
+    if (!isWebSocketConnected) {
+      toast.error('Đang mất kết nối với máy chủ, vui lòng thử lại sau');
+      return;
+    }
+
     setIsSending(true);
 
     const tempKey = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -199,7 +171,8 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     try {
       console.log('Attempting to send message:', message);
-      const success = sendMessage('/app/chat.send', message, token);
+      const success = onSendMessageToServer ? onSendMessageToServer(message) : false;
+      
       if (success) {
         const newMessage = {
           ...message,
@@ -236,6 +209,21 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       toast.error('Vui lòng đăng nhập để gửi file');
       return;
     }
+    if (!selectedContact?.id) {
+      toast.error('Không tìm thấy ID liên hệ hoặc nhóm');
+      return;
+    }
+    
+    if (!isWebSocketConnected) {
+      toast.error('Đang mất kết nối với máy chủ, vui lòng thử lại sau');
+      return;
+    }
+
+    console.log('Uploading files:', {
+      isGroup: selectedContact.isGroup,
+      id: selectedContact.id,
+      files: files.map(f => ({ name: f.name, type: f.type, size: f.size })),
+    });
 
     setIsSending(true);
     try {
@@ -253,10 +241,11 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           type = 'IMAGE';
         } else if (contentType.startsWith('video/')) {
           type = 'VIDEO';
+        } else if (contentType.startsWith('audio/')) {
+          type = 'AUDIO';
         } else if (contentType === 'application/zip' || contentType === 'application/x-rar-compressed') {
           type = 'FILE';
         }
-
         const tempKey = `${Date.now()}-${url}`;
         const message = {
           senderId: userId,
@@ -264,18 +253,32 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           content: url,
           type: type,
           tempKey: tempKey,
-          createAt: new Date().toISOString(),
-          recalled: false,
-          deletedByUsers: [],
-          isRead: false,
-          isPinned: false,
         };
-        onSendMessage(message);
+        
+        const success = onSendMessageToServer ? onSendMessageToServer(message) : false;
+        
+        if (success) {
+          const newMessage = {
+            ...message,
+            createAt: new Date().toISOString(),
+            recalled: false,
+            deletedByUsers: [],
+            isRead: false,
+            isPinned: false,
+          };
+          onSendMessage(newMessage);
+        } else {
+          toast.error('Không thể gửi tin nhắn: WebSocket không hoạt động');
+        }
       });
       toast.success('File đã được gửi!');
     } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error(`Lỗi gửi file: ${error.message}`);
+      console.error('Error uploading file:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      toast.error(`Lỗi gửi file: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsSending(false);
       if (fileInputRef.current) {
@@ -296,7 +299,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      const success = recallMessage(identifier, userId, token);
+      
+      const success = onRecallMessage ? onRecallMessage(identifier) : false;
+      
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
@@ -329,7 +334,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      const success = deleteMessage(identifier, userId, token);
+      
+      const success = onDeleteMessage ? onDeleteMessage(identifier) : false;
+      
       if (success) {
         const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
         if (message.id && !deletedMessageIds.includes(message.id)) {
@@ -368,7 +375,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      const success = pinMessage(identifier, userId, token);
+      
+      const success = onPinMessage ? onPinMessage(identifier) : false;
+      
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
@@ -401,7 +410,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      const success = unpinMessage(identifier, userId, token);
+      
+      const success = onUnpinMessage ? onUnpinMessage(identifier) : false;
+      
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
@@ -429,7 +440,8 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
     }
 
     try {
-      const success = await unpinMessage(message.id, userId, token);
+      const success = onUnpinMessage ? onUnpinMessage(message.id) : false;
+      
       if (success) {
         setPinnedMessages((prev) => prev.filter((msg) => msg.id !== message.id));
         setLocalMessages((prev) =>
@@ -457,6 +469,10 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       toast.error('Vui lòng đăng nhập để chuyển tiếp tin nhắn');
       return;
     }
+    if (!contact.id) {
+      toast.error('Không tìm thấy ID của liên hệ hoặc nhóm');
+      return;
+    }
 
     setIsSending(true);
     try {
@@ -464,6 +480,14 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
+      console.log('Forwarding message:', {
+        identifier,
+        userId,
+        receiverId: contact.isGroup ? null : contact.id,
+        groupId: contact.isGroup ? contact.id : null,
+        content: messageToForward.content,
+        type: messageToForward.type
+      });
       const success = forwardMessage(
         identifier,
         userId,
@@ -473,21 +497,6 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         token
       );
       if (success) {
-        const tempKey = `${Date.now()}-${messageToForward.content}`;
-        const newMessage = {
-          senderId: userId,
-          [contact.isGroup ? 'groupId' : 'receiverId']: contact.id,
-          content: messageToForward.content,
-          type: 'FORWARD',
-          forwardedFrom: { messageId: messageToForward.id, senderId: userId },
-          tempKey: tempKey,
-          createAt: new Date().toISOString(),
-          recalled: false,
-          deletedByUsers: [],
-          isRead: false,
-          isPinned: false,
-        };
-        onSendMessage(newMessage);
         toast.success('Tin nhắn đã được chuyển tiếp!');
       } else {
         toast.error('Không thể chuyển tiếp tin nhắn: WebSocket không hoạt động');
@@ -507,44 +516,6 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
     const messageElement = document.getElementById(`message-${message.id}`);
     if (messageElement) {
       messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  };
-
-  const handleDeleteFriend = async (friendId) => {
-    if (!token) {
-      toast.error('Vui lòng đăng nhập để xóa bạn bè');
-      return;
-    }
-    try {
-      const result = await deleteFriend(friendId);
-      if (result) {
-        toast.success('Đã xóa bạn bè thành công!');
-        // Update contacts list
-        const updatedFriends = await fetchFriendsList();
-        if (updatedFriends) {
-          const updatedContacts = contacts.filter(c => c.isGroup || c.id !== friendId).concat(
-            updatedFriends.map(friend => ({
-              id: friend.id,
-              name: friend.name,
-              username: friend.name,
-              avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
-              status: friend.status || "offline",
-              lastMessage: friend.lastMessage || "",
-              unreadCount: friend.unreadCount || 0,
-              timestamp: friend.timestamp || "Yesterday",
-            }))
-          );
-          contacts.splice(0, contacts.length, ...updatedContacts);
-        }
-        // Clear selected contact if deleted
-        if (selectedContact?.id === friendId) {
-          onSendMessage(null); // Clear chat window
-        }
-      } else {
-        toast.error('Xóa bạn bè thất bại!');
-      }
-    } catch (error) {
-      toast.error(`Lỗi xóa bạn bè: ${error.message}`);
     }
   };
 
@@ -583,6 +554,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         </Box>
         {selectedContact.isGroup ? (
           <>
+            <IconButton onClick={() => setShowSearchBar(!showSearchBar)}>
+              <BiSearch />
+            </IconButton>
             <IconButton onClick={handleShowPinnedMessages}>
               <BiPin />
             </IconButton>
@@ -597,6 +571,9 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           </>
         ) : (
           <>
+            <IconButton onClick={() => setShowSearchBar(!showSearchBar)}>
+              <BiSearch />
+            </IconButton>
             <IconButton onClick={handleShowPinnedMessages}>
               <BiPin />
             </IconButton>
@@ -610,14 +587,17 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
         )}
       </Box>
 
-      <SearchMessages
-        userId={userId}
-        selectedContact={selectedContact}
-        token={token}
-        onSelectMessage={handleSelectMessage}
-      />
+      {showSearchBar && (
+        <SearchMessages
+          userId={userId}
+          selectedContact={selectedContact}
+          token={token}
+          onSelectMessage={handleSelectMessage}
+          onClose={() => setShowSearchBar(false)}
+        />
+      )}
 
-      <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: 'background.default', position: 'relative' }}>
+      <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: '#f0f0f0', position: 'relative' }}>
         {localMessages.map((message, index) => (
           <MessageContainer
             key={message.id ? `${message.id}-${index}` : (message.tempKey ? `${message.tempKey}-${index}` : `${message.createAt}-${message.senderId}-${index}`)}
@@ -681,6 +661,20 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                   )}
                   <video src={message.content} controls style={{ maxWidth: '200px', borderRadius: '8px' }} />
                 </>
+              ) : message.type === 'AUDIO' ? (
+                <>
+                  {selectedContact.isGroup && message.senderId !== userId && (
+                    <Typography variant="caption" display="block" sx={{ opacity: 0.7, mb: 1 }}>
+                      {groupMembers.find(m => m.id === message.senderId)?.username || 'Unknown'}
+                    </Typography>
+                  )}
+                  <audio controls style={{ maxWidth: '200px' }}>
+                    <source src={message.content} type="audio/mpeg" />
+                    <source src={message.content} type="audio/wav" />
+                    <source src={message.content} type="audio/ogg" />
+                    Trình duyệt của bạn không hỗ trợ phát audio.
+                  </audio>
+                </>
               ) : message.type === 'FORWARD' ? (
                 <>
                   {selectedContact.isGroup && message.senderId !== userId && (
@@ -733,7 +727,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
               hidden
               ref={fileInputRef}
               onChange={handleFileUpload}
-              accept="image/*,video/*,application/zip,application/x-rar-compressed"
+              accept="image/*,video/*,audio/*,application/zip,application/x-rar-compressed"
             />
           </IconButton>
           <TextField
@@ -807,212 +801,17 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           <Button onClick={() => setPinnedMessagesDialogOpen(false)}>Đóng</Button>
         </DialogActions>
       </Dialog>
-      <Dialog open={isProfileOpen} onClose={handleProfileClose} maxWidth="xs" fullWidth>
-        {profileData && (
-          <DialogContent
-            sx={{
-              backgroundColor: "#1e1e1e",
-              color: "white",
-              textAlign: 'center',
-              p: 3,
-              position: "relative",
-            }}
-          >
-            <Avatar
-              src={profileData.avatar}
-              sx={{ width: 80, height: 80, margin: '0 auto', mb: 2 }}
-            >
-              {profileData.isGroup && <BiGroup />}
-            </Avatar>
 
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: "bold" }}>
-              {profileData.name}
-            </Typography>
+      <FriendModal
+        open={isFriendModalOpen}
+        onClose={handleProfileClose}
+        profileData={profileData}
+        userId={userId}
+        token={token}
+        contacts={contacts}
+        onContactSelect={onSendMessage}
+      />
 
-            {profileData.isGroup ? (
-              <>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  sx={{ backgroundColor: "#3498db", mb: 2, ":hover": { backgroundColor: "#2980b9" } }}
-                  startIcon={<MessageCircle />}
-                >
-                  NHẮN TIN
-                </Button>
-
-                <Box textAlign="left" mb={2}>
-                  <Typography variant="subtitle1" gutterBottom>Thành viên ({profileData.memberIds?.length || 0})</Typography>
-                  <List dense>
-                    {profileData.members?.map((member) => (
-                      <ListItem key={member.id}>
-                        <ListItemAvatar>
-                          <Avatar src={member.avatarGroup || '/default-avatar.png'} />
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={member.name}
-                          secondary={`@${member.username}`}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </Box>
-
-                <Box textAlign="left" mb={2}>
-                  <Typography variant="subtitle1" gutterBottom>Ảnh/Video</Typography>
-                  {profileData.media?.length ? (
-                    <Grid container spacing={1}>
-                      {profileData.media.map((media, index) => (
-                        <Grid item xs={4} key={index}>
-                          <img
-                            src={media.url || '/default-media.png'}
-                            alt="media"
-                            style={{ width: "100%", borderRadius: 8 }}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
-                  ) : (
-                    <Typography variant="body2">Chưa có ảnh hoặc video nào được chia sẻ</Typography>
-                  )}
-                </Box>
-
-                <Box textAlign="left" mb={2}>
-                  <Typography variant="subtitle1" gutterBottom>Link tham gia nhóm</Typography>
-                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                    {profileData.groupLink || "Chưa có link"}
-                  </Typography>
-                </Box>
-
-                <Divider sx={{ my: 2, bgcolor: "#555" }} />
-
-                <Box display="flex" flexDirection="column" gap={1}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<Settings />}
-                    onClick={handleOpenSettingGroup} 
-                    sx={{
-                      color: "#f1c40f",
-                      borderColor: "#f1c40f",
-                      ":hover": { borderColor: "#f39c12", color: "#f39c12" },
-                    }}
-                  >
-                    QUẢN LÝ NHÓM
-                  </Button>
-
-                  <Button
-                    variant="outlined"
-                    startIcon={<LogOut />}
-                    sx={{
-                      color: "#e74c3c",
-                      borderColor: "#e74c3c",
-                      ":hover": { borderColor: "#c0392b", color: "#c0392b" },
-                    }}
-                  >
-                    RỜI NHÓM
-                  </Button>
-                </Box>
-              </>
-            ) : (
-              <>
-                <Box display="flex" justifyContent="center" gap={2} mb={2}>
-                  <Button
-                    variant="contained"
-                    sx={{ backgroundColor: "#2ecc71", ":hover": { backgroundColor: "#27ae60" } }}
-                    fullWidth
-                    startIcon={<Phone />}
-                  >
-                    GỌI ĐIỆN
-                  </Button>
-                  <Button
-                    variant="contained"
-                    sx={{ backgroundColor: "#3498db", ":hover": { backgroundColor: "#2980b9" } }}
-                    fullWidth
-                    startIcon={<MessageCircle />}
-                  >
-                    NHẮN TIN
-                  </Button>
-                </Box>
-
-                <Box textAlign="left" mb={2}>
-                  <Typography variant="subtitle1" gutterBottom>Thông tin cá nhân</Typography>
-                  <Typography variant="body2" mb={0.5}><strong>Id:</strong> {profileData.id}</Typography>
-                  <Typography variant="body2" mb={0.5}><strong>Username:</strong> {profileData.username || "Chưa cập nhật"}</Typography>
-                  <Typography variant="body2" mb={0.5}><strong>Giới tính:</strong> {profileData.gender || "Chưa cập nhật"}</Typography>
-                  <Typography variant="body2" mb={0.5}><strong>Ngày sinh:</strong> {profileData.birthday || "--/--/----"}</Typography>
-                  <Typography variant="body2" mb={0.5}><strong>Điện thoại:</strong> {profileData.phone || "Chưa cập nhật"}</Typography>
-                </Box>
-
-                <Box textAlign="left" mb={2}>
-                  <Typography variant="subtitle1" gutterBottom>Hình ảnh</Typography>
-                  {profileData.media?.length ? (
-                    <Grid container spacing={1}>
-                      {profileData.media.map((media, index) => (
-                        <Grid item xs={4} key={index}>
-                          <img
-                            src={media.url}
-                            alt="media"
-                            style={{ width: "100%", borderRadius: 8 }}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
-                  ) : (
-                    <Typography variant="body2">Chưa có ảnh nào được chia sẻ</Typography>
-                  )}
-                </Box>
-
-                <Divider sx={{ my: 2, bgcolor: "#555" }} />
-
-                <Box display="flex" flexDirection="column" gap={1}>
-                  <Button
-                    variant="outlined"
-                    color={isBlocked ? "success" : "warning"}
-                    startIcon={isBlocked ? <BiUndo /> : <Slash />}
-                    onClick={isBlocked ? handleUnblockUser : handleBlockUser}
-                    sx={{
-                      color: isBlocked ? "#2ecc71" : "#f1c40f",
-                      borderColor: isBlocked ? "#2ecc71" : "#f1c40f",
-                      ":hover": { borderColor: isBlocked ? "#27ae60" : "#f39c12", color: isBlocked ? "#27ae60" : "#f39c12" },
-                      marginTop: 2,
-                    }}
-                  >
-                    {isBlocked ? "GỠ CHẶN TIN NHẮN VÀ CUỘC GỌI" : "CHẶN TIN NHẮN VÀ CUỘC GỌI"}
-                  </Button>
-
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<Trash />}
-                    sx={{
-                      color: "#e74c3c",
-                      borderColor: "#e74c3c",
-                      ":hover": { borderColor: "#c0392b", color: "#c0392b" },
-                    }}
-                    onClick={() => handleDeleteFriend(profileData.id)}
-                  >
-                    XÓA KHỎI DANH SÁCH BẠN BÈ
-                  </Button>
-                </Box>
-              </>
-            )}
-
-            <Button
-              onClick={handleProfileClose}
-              variant="contained"
-              fullWidth
-              sx={{ mt: 2, backgroundColor: "#7f8c8d", ":hover": { backgroundColor: "#95a5a6" } }}
-            >
-              ĐÓNG
-            </Button>
-            <SettingGroup
-              open={isSettingGroupOpen}
-              onClose={handleCloseSettingGroup}
-              groupId={profileData.id}
-              token={token}
-            />
-          </DialogContent>
-        )}
-      </Dialog>
       <ToastContainer position="bottom-right" autoClose={3000} />
     </ChatContainer>
   );

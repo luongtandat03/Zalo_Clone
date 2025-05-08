@@ -14,26 +14,10 @@ import {
   IconButton,
   MenuItem
 } from "@mui/material";
-import { createTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { AccountCircle, Lock } from "@mui/icons-material";
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#0088cc",
-      light: "#35a3e0",
-      dark: "#006699"
-    },
-    secondary: {
-      main: "#f5f5f5"
-    }
-  },
-  typography: {
-    fontFamily: "Roboto, sans-serif"
-  }
-});
+import { zaloTheme } from "../theme/theme";
 
 const AuthContainer = styled(Container)(({ theme }) => ({
   minHeight: "100vh",
@@ -159,7 +143,7 @@ const Login = () => {
   };
 
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={zaloTheme}>
       <CssBaseline />
       <AuthContainer>
         <AuthPaper elevation={3}>

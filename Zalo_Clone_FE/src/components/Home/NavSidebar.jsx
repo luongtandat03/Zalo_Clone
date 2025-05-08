@@ -40,6 +40,7 @@ const NavSidebar = ({
   onViewChange,
   onProfileOpen,
   onLogout,
+  onOpenChangePasswordModal,
 }) => {
   const [anchorEl, setAnchorEl] = useState(null);
 
@@ -124,8 +125,8 @@ const NavSidebar = ({
               icon={<BiCog />}
               label="Đổi mật khẩu"
               onClick={() => {
-                onViewChange("settings");
                 handleMenuClose();
+                onOpenChangePasswordModal(); 
               }}
             />
             <CustomMenuItem
