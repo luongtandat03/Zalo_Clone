@@ -281,3 +281,18 @@ export const getFriendById = async (friendId) => {
     return null;
   }
 };
+
+/**
+ * Gửi yêu cầu đặt lại mật khẩu
+ * @param {string} email - Email người dùng
+ * @returns {Promise<boolean>} - Trả về true nếu gửi yêu cầu thành công
+ */
+export const resetPassword = async (email) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/users/reset-password`, { email });
+    return response.data;
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    throw error;
+  }
+};

@@ -12,12 +12,14 @@ const ProfileModalStyled = styled(Modal)(({ theme }) => ({
 
 const ProfileContent = styled(Paper)(({ theme }) => ({
   position: "relative",
-  width: 400,
+  width: 450,
+  maxWidth: "90vw",
+  maxHeight: "85vh",
   overflowY: "auto",
-  maxHeight: "90vh",
   backgroundColor: theme.palette.background.paper,
-  borderRadius: 8,
+  borderRadius: 12,
   padding: theme.spacing(4),
+  boxShadow: theme.shadows[5],
   outline: "none",
 }));
 
@@ -29,20 +31,18 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
+
   const handleProfileUpdate = async (event, formData) => {
     event.preventDefault();
     setLoading(true);
-  
+
     try {
-      // Lấy file avatar từ input
       const avatarFile = document.getElementById("profile-image-upload")?.files[0];
-  
-      // Kiểm tra nếu avatarFile không tồn tại, bạn có thể xử lý mặc định nếu cần
+
       if (!avatarFile) {
         console.warn("No avatar file selected");
       }
-  
-      // Cập nhật hồ sơ người dùng
+
       const updatedProfile = {
         firstName: userProfile.firstName,
         lastName: userProfile.lastName,
@@ -52,11 +52,9 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
         birthday: formData.get("birthday"),
         avatar: avatarFile,
       };
-  
-      // Gửi yêu cầu cập nhật hồ sơ
+
       const result = await updateUserProfile(updatedProfile);
-  
-      // Nếu cập nhật thành công, cập nhật lại dữ liệu người dùng
+
       if (result) {
         setUserProfile(result);
         setIsEditing(false);
@@ -70,7 +68,6 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
       setLoading(false);
     }
   };
-  
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
@@ -105,28 +102,32 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
     if (!data) return null;
 
     return (
-      <Box textAlign="center">
+      <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
         <label htmlFor="profile-image-upload">
           <Box position="relative" display="inline-block">
             <Avatar
               src={data.avatar}
               sx={{
-                width: 120,
-                height: 120,
-                margin: "0 auto 20px",
+                width: 140,
+                height: 140,
+                marginBottom: 2,
                 cursor: "pointer",
-                "&:hover": { opacity: 0.8 },
+                border: "3px solid",
+                borderColor: "primary.main",
+                transition: "transform 0.3s ease, opacity 0.3s ease",
+                "&:hover": { opacity: 0.9, transform: "scale(1.05)" },
               }}
             />
             {loading && (
               <CircularProgress
-                size={48}
+                size={50}
                 sx={{
                   position: "absolute",
                   top: "50%",
                   left: "50%",
-                  marginTop: "-24px",
-                  marginLeft: "-24px",
+                  marginTop: "-25px",
+                  marginLeft: "-25px",
+                  color: "primary.main",
                 }}
               />
             )}
@@ -141,35 +142,38 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
           onChange={handleAvatarChange}
         />
 
-        <Typography variant="h5" gutterBottom>
-          {data.username }
+        <Typography variant="h4" fontWeight="bold" color="textPrimary">
+          {data.username}
         </Typography>
-        <Typography variant="body1" color="textSecondary" gutterBottom>
-          Status: {data.status || "Unknown"}
+        <Typography variant="body2" color="textSecondary">
+          Trạng thái: {data.status || "Không xác định"}
         </Typography>
-        <Divider sx={{ my: 2 }} />
 
-        <Typography variant="body1" gutterBottom>
-          <strong>User ID:</strong> {data.id || "N/A"}
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          <strong>Email:</strong> {data.email || "N/A"}
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          <strong>Full Name:</strong> {`${data.firstName || ""} ${data.lastName || ""}`.trim() || "N/A"}
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          <strong>Date of Birth:</strong> {data.birthday || "N/A"}
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          <strong>Gender:</strong> {data.gender || "N/A"}
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          <strong>Phone:</strong> {data.phone || "N/A"}
-        </Typography>
+        <Divider sx={{ my: 3, width: "100%" }} />
+
+        <Box width="100%" textAlign="left" px={2}>
+          <Typography variant="body1" gutterBottom>
+            <strong>ID Người dùng:</strong> {data.id || "N/A"}
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Email:</strong> {data.email || "N/A"}
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Họ và Tên:</strong> {`${data.firstName || ""} ${data.lastName || ""}`.trim() || "N/A"}
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Ngày sinh:</strong> {data.birthday || "N/A"}
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Giới tính:</strong> {data.gender || "N/A"}
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Số điện thoại:</strong> {data.phone || "N/A"}
+          </Typography>
+        </Box>
 
         {userProfile && (
-          <Box>
+          <Box width="100%" mt={3}>
             {isEditing ? (
               <UpdateProfileForm
                 profileData={data}
@@ -182,10 +186,16 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
                 color="primary"
                 fullWidth
                 onClick={() => setIsEditing(true)}
-                sx={{ mt: 2 }}
                 disabled={loading}
+                sx={{
+                  py: 1.5,
+                  fontSize: "1rem",
+                  fontWeight: "medium",
+                  borderRadius: 8,
+                  textTransform: "none",
+                }}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : "Edit Profile"}
+                {loading ? <CircularProgress size={24} color="inherit" /> : "Chỉnh sửa hồ sơ"}
               </Button>
             )}
           </Box>
@@ -200,7 +210,6 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
         <ProfileContent>{renderProfileContent()}</ProfileContent>
       </ProfileModalStyled>
 
-      {/* Snackbar hiển thị thông báo */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
