@@ -31,6 +31,7 @@ import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
+import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 
 import java.net.URL;
 import java.time.LocalDateTime;
@@ -122,6 +123,24 @@ public class MessageServiceImpl implements MessageService {
                     resourceType = "video";
                     type = MessageType.VIDEO;
                 } else if (contentType.startsWith("audio/")) {
+                    List<String> allowedAudioTypes = Arrays.asList("audio/mpeg", "audio/wav", "audio/ogg", "audio/aac", "application/ogg");
+                    if (!allowedAudioTypes.contains(contentType)) {
+                        log.error("Unsupported audio type: {}", contentType);
+                        throw new ResourceNotFoundException("Unsupported audio type. Only MP3, WAV, OGG, and AAC are allowed");
+                    }
+                    // Kiểm tra phần mở rộng file để đảm bảo tính hợp lệ
+                    if (!originalFileName.toLowerCase().endsWith(".ogg") &&
+                            !originalFileName.toLowerCase().endsWith(".mp3") &&
+                            !originalFileName.toLowerCase().endsWith(".wav") &&
+                            !originalFileName.toLowerCase().endsWith(".aac")) {
+                        log.error("File extension does not match supported audio types: {}", originalFileName);
+                        throw new ResourceNotFoundException("File extension does not match supported audio types. Only .ogg, .mp3, .wav, and .aac are allowed");
+                    }
+                    // Kiểm tra kích thước riêng cho audio (Cloudinary giới hạn 10MB cho tài khoản miễn phí)
+                    if (file.getSize() > 10 * 1024 * 1024) {
+                        log.error("Audio file size exceeds Cloudinary limit: {} bytes", file.getSize());
+                        throw new ResourceNotFoundException("Audio file size exceeds Cloudinary limit (10MB)");
+                    }
                     resourceType = "audio";
                     type = MessageType.AUDIO;
                 } else {
@@ -180,8 +199,9 @@ public class MessageServiceImpl implements MessageService {
             message.setRead(false);
 
 
-            messageRepository.save(message);
+             messageRepository.save(message);
             log.info("File uploaded: {} with origin name: {} for sender: {}", originalFileName, originalFileName, request.getSenderId());
+
 
             return Map.of(
                     "url", signedUrl,
@@ -263,15 +283,20 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public MessageResponse forwardMessage(String messageId, String userId, String receiverId, String groupId) {
-        validateUser(userId, receiverId);
+        // Xác thực người dùng nếu đang gửi đến cá nhân
+        if (groupId == null && receiverId != null) {
+            validateUser(userId, receiverId);
+        }
+        // Xác thực người dùng theo nhóm nếu đang gửi đến nhóm
+        else if (groupId != null) {
+            validateGroup(groupId, userId);
+        } else {
+            throw new ResourceNotFoundException("Either receiverId or groupId must be provided");
+        }
+        
         Optional<Message> messageOptional = messageRepository.findById(messageId);
         if (messageOptional.isEmpty()) {
             throw new ResourceNotFoundException("Message not found");
-        }
-        if (groupId != null) {
-            if (groupRepository.findById(groupId).isEmpty()) {
-                throw new ResourceNotFoundException("Group not found");
-            }
         }
 
         Message forwardMessage = new Message();
@@ -482,6 +507,7 @@ public class MessageServiceImpl implements MessageService {
             return false;
         }
     }
+
     private String extractVersionFromUrl(String secureUrl) {
         if (secureUrl == null) {
             return null;
@@ -493,7 +519,7 @@ public class MessageServiceImpl implements MessageService {
             return matcher.group(1);
         }
         return null;
+    }
 
-    }
-    }
+}
 

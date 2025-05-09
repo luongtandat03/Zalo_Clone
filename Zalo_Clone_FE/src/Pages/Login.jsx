@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ThemeProvider, styled } from "@mui/material/styles";
 import {
   Box,
@@ -12,12 +12,14 @@ import {
   Avatar,
   InputAdornment,
   IconButton,
-  MenuItem
+  MenuItem,
+  Alert
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { AccountCircle, Lock } from "@mui/icons-material";
 import { zaloTheme } from "../theme/theme";
+import VerifyEmail from "../components/VerifyEmail"; // Import component xác thực email
 
 const AuthContainer = styled(Container)(({ theme }) => ({
   minHeight: "100vh",
@@ -45,6 +47,7 @@ const AuthPaper = styled(Paper)(({ theme }) => ({
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isResetPassword, setIsResetPassword] = useState(false);
+  const [isEmailVerification, setIsEmailVerification] = useState(false); // Thêm state này để quản lý hiển thị màn hình xác thực email
   const [resetEmail, setResetEmail] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -63,8 +66,44 @@ const Login = () => {
     birthday: ""
   });
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  
+  // Lấy thông tin từ state của route nếu có
+  const registrationSuccess = location.state?.registrationSuccess;
+  const registeredEmail = location.state?.email;
+  
+  // Xử lý khi có thông tin đăng ký thành công từ trang xác thực email
+  useEffect(() => {
+    if (registrationSuccess) {
+      // Hiển thị thông báo thành công
+      setSuccessMessage("Đăng ký thành công! Vui lòng đăng nhập để tiếp tục.");
+      
+      // Nếu có email đã đăng ký, điền vào trường username
+      if (registeredEmail) {
+        setFormData(prev => ({
+          ...prev,
+          username: registeredEmail
+        }));
+      }
+      
+      // Đặt chế độ hiển thị là đăng nhập
+      setIsLogin(true);
+      setIsEmailVerification(false);
+      setIsResetPassword(false);
+      
+      // Xóa state từ location để tránh hiển thị lại khi refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [registrationSuccess, registeredEmail]);
+
+  useEffect(() => {
+    if (location.state && location.state.successMessage) {
+      setError(location.state.successMessage);
+    }
+  }, [location]);
 
   const handleChange = (e) => {
     setFormData({
@@ -76,7 +115,6 @@ const Login = () => {
   const handleTogglePassword = () => {
     setShowPassword((prev) => !prev);
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -95,60 +133,103 @@ const Login = () => {
       setError("Mật khẩu không đúng.");
       return;
     }
-    try {
-      const endpoint = isLogin
-        ? "http://localhost:8080/auth/login"
-        : "http://localhost:8080/auth/register";
 
-      const requestBody = isLogin
-        ? {
+    if (isLogin) {
+      // Xử lý đăng nhập như cũ
+      try {
+        const endpoint = "http://localhost:8080/auth/login";
+        const requestBody = {
           username: formData.username,
           password: formData.password
-        }
-        : {
-          username: formData.username,
-          password: formData.password,
-          email: formData.email,
-          phone: formData.phone,
-          gender: formData.gender,
-          birthday: formData.birthday,
-          avatar: formData.avatar
         };
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(requestBody)
-      });
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(requestBody)
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Authentication failed");
+        if (!response.ok) {
+          throw new Error(data.message || "Đăng nhập thất bại");
+        }
+
+        localStorage.setItem("accessToken", data.accessToken);
+        localStorage.setItem("refreshToken", data.refreshToken);
+        localStorage.setItem("userId", data.userId);
+
+        console.log("Đăng nhập thành công:", data);
+        navigate("/home");
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
       }
-
-      localStorage.setItem("accessToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
-      localStorage.setItem("userId", data.userId);
-
-      console.log("Success:", data);
-      navigate("/home");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
+    } else {
+      // Xử lý đăng ký - Chuyển sang màn hình xác thực email thay vì đăng ký ngay
+      try {
+        // Kiểm tra dữ liệu đầu vào
+        if (!formData.email || !formData.email.includes('@')) {
+          throw new Error("Email không hợp lệ");
+        }
+        if (!formData.phone) {
+          throw new Error("Số điện thoại không được để trống");
+        }
+        
+        // Chuyển sang giao diện xác thực email
+        setIsEmailVerification(true);
+        setIsLoading(false);
+      } catch (err) {
+        setError(err.message);
+        setIsLoading(false);
+      }
     }
   };
-
   return (
     <ThemeProvider theme={zaloTheme}>
       <CssBaseline />
       <AuthContainer>
-        <AuthPaper elevation={3}>
-          <Box
-            sx={{
+        {isEmailVerification ? (          <VerifyEmail
+            email={formData.email}
+            registerData={{
+              username: formData.username,
+              password: formData.password,
+              email: formData.email,
+              phone: formData.phone,
+              gender: formData.gender,
+              birthday: formData.birthday ? formData.birthday : new Date().toISOString().split('T')[0],
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              avatar: formData.avatar || "default-avatar",
+              status: "ACTIVE" // Đặt trạng thái người dùng là ACTIVE
+            }}
+            onSuccess={(response) => {
+              // Xử lý sau khi xác thực email thành công
+              console.log("Đăng ký thành công:", response);
+              
+              // Lưu thông tin người dùng vào localStorage
+              if (response.accessToken) localStorage.setItem("accessToken", response.accessToken);
+              if (response.refreshToken) localStorage.setItem("refreshToken", response.refreshToken);
+              if (response.userId) localStorage.setItem("userId", response.userId);
+              
+              // Hiển thị thông báo thành công
+              setError("");
+              alert("Đăng ký và xác thực email thành công!");
+                      // Không cần phải làm gì ở đây vì VerifyEmail đã được sửa đổi để chuyển hướng tới trang đăng nhập
+              // với trạng thái registrationSuccess = true
+            }}
+            onBack={() => {
+              // Quay lại màn hình đăng ký
+              setIsEmailVerification(false);
+            }}
+          />
+        ) : (
+          <AuthPaper elevation={3}>
+            <Box
+              sx={{
               width: "100%",
               display: "flex",
               alignItems: "center",
@@ -176,6 +257,12 @@ const Login = () => {
             <Typography color="error" sx={{ mb: 2 }}>
               {error}
             </Typography>
+          )}
+
+          {successMessage && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {successMessage}
+            </Alert>
           )}
 
           <Box component="form" onSubmit={handleSubmit} sx={{ width: "100%" }}>
@@ -480,9 +567,9 @@ const Login = () => {
                   Quay lại đăng nhập
                 </Link>
               )}
-            </Box>
-          </Box>
+            </Box>          </Box>
         </AuthPaper>
+        )}
       </AuthContainer>
     </ThemeProvider>
   );

@@ -300,3 +300,67 @@ export const resetPassword = async (email) => {
     throw error;
   }
 };
+
+// API để gửi email xác thực
+export const sendVerificationEmail = async (email) => {
+  try {
+    // Đảm bảo email được gửi đúng định dạng
+    const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: email
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Error from server:", errorData);
+      throw new Error("Không thể gửi email xác thực");
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Lỗi khi gửi email xác thực:", error);
+    throw error;
+  }
+};
+
+// API để xác thực email bằng mã code
+export const verifyEmailWithCode = async (email, code, userRegisterRequest) => {
+  try {
+    console.log("Gửi yêu cầu xác thực email:", {
+      email,
+      code,
+      userRegisterRequest
+    });
+
+    const response = await fetch(`${API_BASE_URL}/auth/verify-email-code`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email: email,
+        code: code,
+        userRegisterRequest: userRegisterRequest
+      })
+    });
+    
+    if (!response.ok) {
+      let errorMessage = "Xác thực email thất bại";
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // Nếu phản hồi không phải JSON, sử dụng thông báo mặc định
+      }
+      throw new Error(errorMessage);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error("Lỗi khi xác thực email:", error);
+    throw error;
+  }
+};

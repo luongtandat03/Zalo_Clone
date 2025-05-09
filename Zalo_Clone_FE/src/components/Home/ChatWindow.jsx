@@ -735,9 +735,26 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                       <BiPin />
                     </IconButton>
                   }
-                >
-                  <ListItemText
-                    primary={message.content}
+                >                  <ListItemText
+                    primary={
+                      message.type === 'IMAGE' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <img src={message.content} alt="Ảnh" style={{ maxWidth: '100px', maxHeight: '60px', marginRight: '8px' }} />
+                          <Typography variant="body2">[Hình ảnh]</Typography>
+                        </Box>
+                      ) : message.type === 'VIDEO' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <video src={message.content} style={{ maxWidth: '100px', maxHeight: '60px', marginRight: '8px' }} />
+                          <Typography variant="body2">[Video]</Typography>
+                        </Box>
+                      ) : message.type === 'AUDIO' ? (
+                        <Typography>[Âm thanh]</Typography>
+                      ) : message.type === 'FILE' ? (
+                        <Typography>[Tệp đính kèm]</Typography>
+                      ) : (
+                        message.content
+                      )
+                    }
                     secondary={`Từ: ${selectedContact.isGroup ? (message.senderId === userId ? 'Bạn' : message.senderId) : message.senderId === userId ? 'Bạn' : selectedContact.name} - ${new Date(message.createAt).toLocaleString()}`}
                     onClick={() => handleSelectMessage(message)}
                     sx={{ cursor: 'pointer' }}
