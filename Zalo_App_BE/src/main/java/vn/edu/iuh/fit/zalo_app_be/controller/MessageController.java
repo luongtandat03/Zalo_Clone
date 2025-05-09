@@ -23,6 +23,7 @@ import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
+import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +36,7 @@ import java.util.Map;
 public class MessageController {
     private final MessageService messageService;
     private final UserRepository userRepository;
+    private final WebSocketService webSocketService;
 
     @GetMapping("/chat-history/{userId}")
     public ResponseEntity<List<MessageResponse>> getChatHistory(@PathVariable String userId) {
@@ -77,6 +79,13 @@ public class MessageController {
             fileResults.add(messageService.uploadFile(file, request));
         }
         log.info("Uploaded files: {}", fileResults);
+
+        if (groupId != null) {
+            webSocketService.sendMessageToGroup(groupId, fileResults);
+        } else {
+            webSocketService.sendMessageToUser(receiverId, fileResults);
+        }
+
         return new ResponseEntity<>(fileResults, HttpStatus.OK);
     }
 

@@ -72,4 +72,8 @@ public interface WebSocketService {
     void notifyIceCandidate(String callId, String receiverId, Object candidate);
 
     void notifyGroupIceCandidate(String callId, String userId, Group group, Object candidate);
+
+    void sendMessageToUser(String receiverId, Object message);
+
+    void sendMessageToGroup(String groupId, Object message);
 }

@@ -21,7 +21,6 @@ import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.MessageSendException;
 import vn.edu.iuh.fit.zalo_app_be.exception.ResourceNotFoundException;
 import vn.edu.iuh.fit.zalo_app_be.model.Group;
-import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
@@ -350,6 +349,28 @@ public class WebSocketServiceImpl implements WebSocketService {
             if (!memberId.equals(userId)) {
                 template.convertAndSendToUser(memberId, "/queue/candidate", notification);
             }
+        }
+    }
+
+    @Override
+    public void sendMessageToUser(String receiverId, Object message) {
+        try {
+            template.convertAndSendToUser(receiverId, "/queue/messages", message);
+            log.info("Message sent to user {}: {}", receiverId, message);
+        } catch (Exception e) {
+            log.error("Error sending message to user {}: {}", receiverId, e.getMessage());
+            throw new MessageSendException("Error sending message to user");
+        }
+    }
+
+    @Override
+    public void sendMessageToGroup(String groupId, Object message) {
+        try {
+            template.convertAndSend("/topic/group/" + groupId, message);
+            log.info("Message sent to group {}: {}", groupId, message);
+        } catch (Exception e) {
+            log.error("Error sending message to group {}: {}", groupId, e.getMessage());
+            throw new MessageSendException("Error sending message to group");
         }
     }
 

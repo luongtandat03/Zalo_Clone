@@ -151,33 +151,41 @@ public class MessageServiceImpl implements MessageService {
                 type = MessageType.FILE;
             }
 
-            String fileExtension = originalFileName.contains(".") ? originalFileName.substring(originalFileName.lastIndexOf(".")) : "";
-            String sanitizedFileName = originalFileName.replaceAll("[^a-zA-Z0-9.-]", "_");
+            String fileExtension = "";
+            String baseName = originalFileName;
 
-            String publicId = sanitizedFileName + fileExtension;
+            int lastDotIdx = originalFileName.lastIndexOf('.');
+            if (lastDotIdx > 0) {
+                fileExtension = originalFileName.substring(lastDotIdx).toLowerCase();
+                baseName = originalFileName.substring(0, lastDotIdx);
+            }
+
+            String sanitizedFileName = baseName.replaceAll("[^a-zA-Z0-9-]", "_");
+
+            String publicId = "chat_files/" + sanitizedFileName;
 
             log.info("Uploading file to Cloudinary: {} with public ID: {}", originalFileName, publicId);
 
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", resourceType, "folder", "chat_files", "public_id", publicId));
+            Map<String, Object> uploadOptions = ObjectUtils.asMap(
+                    "resource_type", resourceType,
+                    "public_id", publicId,
+                    "use_filename", false
+            );
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
             String url = (String) uploadResult.get("secure_url");
             String cloudinaryPublicId = (String) uploadResult.get("public_id");
             String thumbnail = (type == MessageType.VIDEO || type == MessageType.AUDIO) ? (String) uploadResult.get("thumbnail") : null;
-
-            String version = extractVersionFromUrl(url);
-            if (version == null) {
-                log.warn("Could not extract version from Secure URL: {}", url);
-            }
 
             Map resourceInfo = cloudinary.api().resource(cloudinaryPublicId, ObjectUtils.asMap("resource_type", resourceType));
             if (resourceInfo == null || !url.equals(resourceInfo.get("secure_url"))) {
                 throw new ResourceNotFoundException("Upload file not found on Cloudinary");
             }
 
-            Map<String, String> signatureParams = new HashMap<>();
-            signatureParams.put("public_id", cloudinaryPublicId);
-            signatureParams.put("resource_type", resourceType);
+            String version = uploadResult.get("version").toString();
+
             String signedUrl = cloudinary.url()
                     .secure(true)
+                    .version(version)
                     .resourceType(resourceType)
                     .generate(cloudinaryPublicId);
 
@@ -284,8 +292,7 @@ public class MessageServiceImpl implements MessageService {
     public MessageResponse forwardMessage(String messageId, String userId, String receiverId, String groupId) {
         if (groupId == null && receiverId != null) {
             validateUser(userId, receiverId);
-        }
-        else if (groupId != null) {
+        } else if (groupId != null) {
             validateGroup(groupId, userId);
         } else {
             throw new ResourceNotFoundException("Either receiverId or groupId must be provided");
@@ -503,19 +510,5 @@ public class MessageServiceImpl implements MessageService {
             return false;
         }
     }
-
-    private String extractVersionFromUrl(String secureUrl) {
-        if (secureUrl == null) {
-            return null;
-        }
-
-        Pattern pattern = Pattern.compile("/v(\\d+)/");
-        Matcher matcher = pattern.matcher(secureUrl);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        return null;
-    }
-
 }
 
