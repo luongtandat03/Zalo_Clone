@@ -186,8 +186,35 @@ export const unpinMessage = async (messageId, userId, token) => {
   }
 };
 
+// Hàm chỉnh sửa tin nhắn
+export const editMessage = async (messageId, userId, content, groupId, token) => {
+  if (!stompClient || !stompClient.connected) {
+    console.error('Cannot edit message: STOMP client is not connected');
+    return false;
+  }
+
+  try {
+    const message = {
+      id: messageId,
+      senderId: userId,
+      content,
+      groupId,
+    };
+    stompClient.publish({
+      destination: '/app/chat.edit',
+      body: JSON.stringify(message),
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log('Edited message:', messageId, 'with content:', content);
+    return true;
+  } catch (error) {
+    console.error('Error editing message:', error);
+    return false;
+  }
+};
+
 // Hàm kết nối WebSocket với STOMP
-export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallback, onRecallCallback, onPinCallback, onUnpinCallback, groupIds = [], onFriendRequestCallback) {
+export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallback, onRecallCallback, onPinCallback, onUnpinCallback, groupIds = [], onFriendRequestCallback, onEditCallback) {
   return new Promise((resolve, reject) => {
     if (!token) {
       reject(new Error('Token is missing'));
@@ -252,6 +279,7 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
             fileName: parsedMessage.fileName || '',
             thumbnail: parsedMessage.thumbnail || '',
             publicId: parsedMessage.publicId || '',
+            isEdited: parsedMessage.isEdited || false,
           };
           const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
           if (!deletedMessageIds.includes(normalizedMessage.id)) {
@@ -284,6 +312,7 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
                 fileName: parsedMessage.fileName || '',
                 thumbnail: parsedMessage.thumbnail || '',
                 publicId: parsedMessage.publicId || '',
+                isEdited: parsedMessage.isEdited || false,
               };
               const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
               if (!deletedMessageIds.includes(normalizedMessage.id)) {
@@ -363,6 +392,25 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
           }
         } catch (error) {
           console.error('Error parsing unpin notification:', error);
+        }
+      }, { Authorization: `Bearer ${token}` });
+
+      // Subscription cho thông báo chỉnh sửa tin nhắn
+      stompClient.subscribe(`/user/${userId}/queue/edit`, (message) => {
+        try {
+          const parsedMessage = JSON.parse(message.body);
+          console.log('Edit notification:', parsedMessage);
+          if (parsedMessage._id) {
+            parsedMessage.id = parsedMessage._id;
+            delete parsedMessage._id;
+          }
+          if (onEditCallback) {
+            onEditCallback(parsedMessage);
+          } else {
+            console.warn('onEditCallback is not defined');
+          }
+        } catch (error) {
+          console.error('Error parsing edit notification:', error);
         }
       }, { Authorization: `Bearer ${token}` });
 

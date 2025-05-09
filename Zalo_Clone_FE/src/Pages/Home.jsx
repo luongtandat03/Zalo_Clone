@@ -176,6 +176,7 @@ const Home = () => {
               deletedByUsers: receivedMessage.deletedByUsers || [],
               isRead: receivedMessage.isRead || false,
               isPinned: receivedMessage.isPinned || false,
+              isEdited: receivedMessage.isEdited || false,
             }];
           });
         },
@@ -231,7 +232,18 @@ const Home = () => {
           );
         },
         groupIds,
-        handleFriendRequest
+        handleFriendRequest,
+        (editedMessage) => {
+          if (!isMounted) return;
+          console.log('Received edit notification:', editedMessage);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === editedMessage.id
+                ? { ...msg, content: editedMessage.content, isEdited: true }
+                : msg
+            )
+          );
+        }
       ).then(() => {
         if (!isMounted) return;
         console.log('STOMP connected in Home');
@@ -329,8 +341,8 @@ const Home = () => {
       const data = await fetchPendingFriendRequests(token);
       if (data) {
         setPendingRequests(data.map(request => ({
-          id: request.senderId, // ID của người gửi (cho hiển thị)
-          requestId: request.id, // ID của bản ghi Friend
+          id: request.senderId,
+          requestId: request.id,
           name: request.name,
           avatar: request.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
         })));
@@ -390,6 +402,7 @@ const Home = () => {
               deletedByUsers: msg.deletedByUsers || [],
               isRead: msg.isRead || false,
               isPinned: msg.isPinned || false,
+              isEdited: msg.isEdited || false,
             });
           }
           return acc;
@@ -468,7 +481,6 @@ const Home = () => {
       return;
     }
 
-    // Kiểm tra định dạng số điện thoại cơ bản (chỉ chứa số)
     if (!/^\d+$/.test(friendPhoneInput)) {
       setSnackbarMessage("Số điện thoại chỉ được chứa các chữ số!");
       setSnackbarSeverity("error");
@@ -692,8 +704,7 @@ const Home = () => {
             {currentView === "settings" && <SettingsPanel />}
           </SidebarContainer>
           {token ? (
-            <ChatWindow {...chatWindowProps} 
-            />
+            <ChatWindow {...chatWindowProps} />
           ) : (
             <Box display="flex" alignItems="center" justifyContent="center" height="100%">
               <Typography variant="h6" color="text.secondary">

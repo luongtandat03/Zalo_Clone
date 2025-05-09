@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button, CircularProgress } from '@mui/material';
-import { BiSearch, BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin } from 'react-icons/bi';
+import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, DialogActions, Button, CircularProgress, List, ListItem, ListItemAvatar, ListItemText } from '@mui/material';
+import { BiSearch, BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin, BiEdit } from 'react-icons/bi';
 import Picker from 'emoji-picker-react';
-import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, pinMessage, unpinMessage, getPinnedMessages } from '../../api/messageApi';
+import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, pinMessage, unpinMessage, getPinnedMessages, editMessage } from '../../api/messageApi';
 import { fetchGroupMembers } from '../../api/groupApi';
 import SearchMessages from '../../components/SearchMessages';
 import FriendModal from './FriendModal';
@@ -45,9 +45,12 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
   const [localMessages, setLocalMessages] = useState(messages);
   const [isSending, setIsSending] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [pinnedMessagesDialogOpen, setPinnedMessagesDialogOpen] = useState(false);
   const [pinnedMessages, setPinnedMessages] = useState([]);
   const [messageToForward, setMessageToForward] = useState(null);
+  const [messageToEdit, setMessageToEdit] = useState(null);
+  const [editContent, setEditContent] = useState('');
   const [groupMembers, setGroupMembers] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
@@ -156,6 +159,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           deletedByUsers: [],
           isRead: false,
           isPinned: false,
+          isEdited: false,
         };
         onMessageInputChange({ target: { value: '' } });
         onSendMessage(newMessage);
@@ -387,6 +391,58 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
     setForwardDialogOpen(true);
   };
 
+  const handleOpenEditDialog = (message) => {
+    if (message.type !== 'TEXT') {
+      toast.error('Chỉ có thể chỉnh sửa tin nhắn văn bản');
+      return;
+    }
+    setMessageToEdit(message);
+    setEditContent(message.content);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditMessage = async () => {
+    if (!editContent.trim()) {
+      toast.error('Nội dung tin nhắn không được để trống');
+      return;
+    }
+    if (!token) {
+      toast.error('Vui lòng đăng nhập để chỉnh sửa tin nhắn');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const success = await editMessage(
+        messageToEdit.id,
+        userId,
+        editContent,
+        selectedContact.isGroup ? selectedContact.id : null,
+        token
+      );
+      if (success) {
+        setLocalMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageToEdit.id
+              ? { ...msg, content: editContent, isEdited: true }
+              : msg
+          )
+        );
+        toast.success('Tin nhắn đã được chỉnh sửa!');
+      } else {
+        toast.error('Không thể chỉnh sửa tin nhắn: WebSocket không hoạt động');
+      }
+    } catch (error) {
+      console.error('Error editing message:', error);
+      toast.error(`Lỗi chỉnh sửa tin nhắn: ${error.message}`);
+    } finally {
+      setIsSending(false);
+      setEditDialogOpen(false);
+      setMessageToEdit(null);
+      setEditContent('');
+    }
+  };
+
   const handleForwardMessage = (contact) => {
     if (!token) {
       toast.error('Vui lòng đăng nhập để chuyển tiếp tin nhắn');
@@ -550,6 +606,11 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                 >
                   <BiPin />
                 </IconButton>
+                {message.type === 'TEXT' && (
+                  <IconButton size="small" onClick={() => handleOpenEditDialog(message)} disabled={isSending}>
+                    <BiEdit />
+                  </IconButton>
+                )}
               </Box>
             )}
             <MessageBubble isSender={message.senderId === userId}>
@@ -570,6 +631,11 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                     </Typography>
                   )}
                   <Typography>{message.content}</Typography>
+                  {message.isEdited && (
+                    <Typography variant="caption" sx={{ opacity: 0.7, fontStyle: 'italic' }}>
+                      (Đã chỉnh sửa)
+                    </Typography>
+                  )}
                 </>
               ) : message.type === 'IMAGE' ? (
                 <>
@@ -694,6 +760,28 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             ))}
           </List>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)}>
+        <DialogTitle>Chỉnh sửa tin nhắn</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Nội dung tin nhắn"
+            variant="outlined"
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            multiline
+            rows={3}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)}>Hủy</Button>
+          <Button onClick={handleEditMessage} disabled={isSending || !editContent.trim()}>
+            Lưu
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog open={pinnedMessagesDialogOpen} onClose={() => setPinnedMessagesDialogOpen(false)}>
