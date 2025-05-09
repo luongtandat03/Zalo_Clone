@@ -136,10 +136,6 @@ public class ChatController {
         try {
             if (messageId == null || userId == null || (receiverId == null && groupId == null)) {
                 throw new RuntimeException("Invalid forward message request: missing messageId, userId or receiverId");
-            } else if (groupId != null) {
-                if (!groupId.equals(request.getGroupId())) {
-                    throw new RuntimeException("Invalid forward message request: groupId not match");
-                }
             }
 
             MessageResponse response = messageService.forwardMessage(messageId, userId, receiverId, groupId);

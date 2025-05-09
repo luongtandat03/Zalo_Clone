@@ -101,7 +101,7 @@ public class WebSocketServiceImpl implements WebSocketService {
         notification.put("userId", userId);
         notification.put("receiverId", receiverId);
 
-        template.convertAndSendToUser(receiverId, "/queue/friend/request/rejected", notification);
+        template.convertAndSendToUser(userId, "/queue/friend/request/rejected", notification);
         log.info("Friend request rejected notification sent to {} from {}", receiverId, userId);
     }
 

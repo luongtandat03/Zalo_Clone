@@ -48,7 +48,6 @@ public class MessageServiceImpl implements MessageService {
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final Cloudinary cloudinary;
-    private final WebSocketService webSocketService;
 
     @Override
     public MessageResponse saveMessage(MessageRequest request) {
@@ -105,7 +104,7 @@ public class MessageServiceImpl implements MessageService {
             throw new ResourceNotFoundException("File not found");
         }
 
-        if (file.getSize() > 50 * 1024 * 1024) // 50MB
+        if (file.getSize() > 10 * 1024 * 1024) // 50MB
         {
             throw new ResourceNotFoundException("File size exceeds limit");
         }
@@ -129,7 +128,6 @@ public class MessageServiceImpl implements MessageService {
                         log.error("Unsupported audio type: {}", contentType);
                         throw new ResourceNotFoundException("Unsupported audio type. Only MP3, WAV, OGG, and AAC are allowed");
                     }
-                    // Kiểm tra phần mở rộng file để đảm bảo tính hợp lệ
                     if (!originalFileName.toLowerCase().endsWith(".ogg") &&
                             !originalFileName.toLowerCase().endsWith(".mp3") &&
                             !originalFileName.toLowerCase().endsWith(".wav") &&
@@ -137,7 +135,6 @@ public class MessageServiceImpl implements MessageService {
                         log.error("File extension does not match supported audio types: {}", originalFileName);
                         throw new ResourceNotFoundException("File extension does not match supported audio types. Only .ogg, .mp3, .wav, and .aac are allowed");
                     }
-                    // Kiểm tra kích thước riêng cho audio (Cloudinary giới hạn 10MB cho tài khoản miễn phí)
                     if (file.getSize() > 10 * 1024 * 1024) {
                         log.error("Audio file size exceeds Cloudinary limit: {} bytes", file.getSize());
                         throw new ResourceNotFoundException("Audio file size exceeds Cloudinary limit (10MB)");
@@ -189,7 +186,7 @@ public class MessageServiceImpl implements MessageService {
             message.setReceiverId(request.getReceiverId());
             message.setGroupId(request.getGroupId());
             message.setType(type);
-            message.setContent(signedUrl);
+            message.setContent(url);
             message.setThumbnail(thumbnail);
             message.setPublicId(cloudinaryPublicId);
             message.setFileName(originalFileName);
@@ -205,11 +202,6 @@ public class MessageServiceImpl implements MessageService {
 
             MessageResponse messageResponse = convertToMessageResponse(saveMessage);
 
-            if (request.getGroupId() != null) {
-                webSocketService.sendGroupMessage(new MessageRequest(request.getSenderId(), null, request.getGroupId(), type, messageResponse));
-            } else {
-                webSocketService.sendMessage(new MessageRequest(request.getSenderId(), request.getReceiverId(), null, type, messageResponse));
-            }
             return Map.of(
                     "url", signedUrl,
                     "type", type.toString(),
@@ -290,15 +282,17 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public MessageResponse forwardMessage(String messageId, String userId, String receiverId, String groupId) {
-        validateUser(userId, receiverId);
+        if (groupId == null && receiverId != null) {
+            validateUser(userId, receiverId);
+        }
+        else if (groupId != null) {
+            validateGroup(groupId, userId);
+        } else {
+            throw new ResourceNotFoundException("Either receiverId or groupId must be provided");
+        }
         Optional<Message> messageOptional = messageRepository.findById(messageId);
         if (messageOptional.isEmpty()) {
             throw new ResourceNotFoundException("Message not found");
-        }
-        if (groupId != null) {
-            if (groupRepository.findById(groupId).isEmpty()) {
-                throw new ResourceNotFoundException("Group not found");
-            }
         }
 
         Message forwardMessage = new Message();
@@ -306,7 +300,7 @@ public class MessageServiceImpl implements MessageService {
         forwardMessage.setReceiverId(receiverId);
         forwardMessage.setGroupId(groupId);
         forwardMessage.setContent(messageOptional.get().getContent());
-        forwardMessage.setType(MessageType.FORWARD); // Đặt type là FORWARD
+        forwardMessage.setType(MessageType.FORWARD);
         forwardMessage.setImageUrls(messageOptional.get().getImageUrls());
         forwardMessage.setVideoInfos(messageOptional.get().getVideoInfos());
         forwardMessage.setFileName(messageOptional.get().getFileName());

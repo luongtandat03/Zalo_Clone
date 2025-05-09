@@ -177,19 +177,18 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
-    public void cancelFriendRequest(String receiverId) {
-        String userId = getCurrentUserId();
-        Optional<Friend> friendRequest = friendRepository.findBySenderIdAndReceiverIdAndStatus(userId, receiverId, FriendStatus.PENDING);
+    public void cancelFriendRequest(String requestId) {
+        Optional<Friend> friendRequest = friendRepository.findById(requestId);
 
         // Check if the friend request is not found
-        throwIf(friendRequest.isEmpty(), "Friend request not found with id: {}", "Friend request not found with id: " + receiverId, HttpStatus.NOT_FOUND);
+        throwIf(friendRequest.isEmpty(), "Friend request not found with id: {}", "Friend request not found with id: " + requestId, HttpStatus.NOT_FOUND);
         // Check if the friend request is not pending
         throwIf(friendRequest.get().getStatus() != FriendStatus.PENDING, "Friend request is not pending", "Friend request is not pending", HttpStatus.BAD_REQUEST);
 
         // Delete the friend request
         friendRepository.delete(friendRequest.get());
-        webSocketService.notifyFriendRequestRejected(userId, friendRequest.get().getSenderId());
-        log.info("Friend request cancelled from {} to {}", userId, receiverId);
+        webSocketService.notifyFriendRequestRejected(friendRequest.get().getSenderId(), friendRequest.get().getReceiverId());
+        log.info("Friend request cancelled from {} to {}", friendRequest.get().getSenderId(), friendRequest.get().getReceiverId());
     }
 
     @Override

@@ -10,8 +10,6 @@ package vn.edu.iuh.fit.zalo_app_be.controller.request;
  * @date: 4/10/2025
  */
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import vn.edu.iuh.fit.zalo_app_be.common.Gender;
 import vn.edu.iuh.fit.zalo_app_be.common.UserStatus;
