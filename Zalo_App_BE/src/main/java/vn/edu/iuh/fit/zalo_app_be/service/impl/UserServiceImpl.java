@@ -448,6 +448,7 @@ public class UserServiceImpl implements UserService {
                 .id(user.getId())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
+                .phone(user.getPhone())
                 .avatar(user.getAvatar())
                 .build();
     }
