@@ -55,14 +55,9 @@ app:
 
 cloudinary:
   cloud:
-    name: df7mlqoer
-    api-key: 515769347497344
-    api-secret: QMYtlr-zJQFh3UZdeEgNVT_zOG8
+    name: dm6olod4x
+    api-key: 971329371956998
+    api-secret: cUdGvmu9_UlrOzHx_cMfxQGVwKg
 
 avatar:
   default: https://i.ibb.co/mrL8wYRs/default.jpg
-
-security:
-   whiteListUrls:
-     - /auth/**
-     - /ws/**
