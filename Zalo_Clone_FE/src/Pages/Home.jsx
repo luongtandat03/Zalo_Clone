@@ -2,13 +2,14 @@ import React, { useState, useEffect, useCallback, useMemo, Component } from "rea
 import { ThemeProvider, styled } from "@mui/material/styles";
 import { CssBaseline, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Button, Checkbox, List, ListItem, ListItemText } from '@mui/material';
 import { Box, Typography, IconButton, Menu, MenuItem, Snackbar, Alert } from "@mui/material";
-import { BiUserPlus, BiGroup, BiDotsVerticalRounded } from "react-icons/bi";
+import { BiUserPlus, BiGroup, BiDotsVerticalRounded, BiSearch } from "react-icons/bi";
 import { useNavigate, useLocation } from "react-router-dom";
 import NavSidebar from "../components/Home/NavSidebar";
 import ContactList from "../components/Home/ContactList";
 import SettingsPanel from "../components/Home/SettingsPanel";
 import ChatWindow from "../components/Home/ChatWindow";
 import ProfileModal from "../components/Home/ProfileModal";
+import UserSearchModal from "../components/Home/UserSearchModal";
 import { fetchUserProfile, fetchFriendsList, sendFriendRequest, fetchPendingFriendRequests, acceptFriendRequest } from "../api/user";
 import { getChatHistory, getGroupChatHistory, connectWebSocket, disconnectWebSocket } from "../api/messageApi";
 import { createGroup, fetchUserGroups } from "../api/groupApi";
@@ -80,8 +81,8 @@ const Home = () => {
   const [friendPhoneInput, setFriendPhoneInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
-  const [groupName, setGroupName] = useState("");
-  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
+  const [groupName, setGroupName] = useState("");  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
+  const [userSearchOpen, setUserSearchOpen] = useState(false);
 
   // Đồng bộ token với localStorage
   useEffect(() => {
@@ -634,7 +635,9 @@ const Home = () => {
                       ? "Contacts"
                       : "Settings"}
                 </Typography>
-                <Box>
+                <Box>                  <IconButton onClick={() => setUserSearchOpen(true)} sx={{ mr: 1 }} disabled={isLoading}>
+                    <BiSearch title="Tìm kiếm" />
+                  </IconButton>
                   <IconButton onClick={handleToggleAddFriendInput} sx={{ mr: 1 }} disabled={isLoading}>
                     <BiUserPlus title="Add Friend" />
                   </IconButton>
@@ -662,12 +665,12 @@ const Home = () => {
                   </IconButton>
                 </Box>
               )}
-            </Box>
-            <Menu
+            </Box>            <Menu
               anchorEl={anchorEl}
               open={Boolean(anchorEl)}
               onClose={handleMenuClose}
             >
+              <MenuItem onClick={() => { setUserSearchOpen(true); handleMenuClose(); }}>Tìm kiếm bạn bè</MenuItem>
               <MenuItem onClick={handleOpenCreateGroup}>Tạo nhóm</MenuItem>
               <MenuItem onClick={handleLogout}>Đăng xuất</MenuItem>
             </Menu>
@@ -711,14 +714,17 @@ const Home = () => {
                 Vui lòng đăng nhập để sử dụng chức năng chat
               </Typography>
             </Box>
-          )}
-          <ProfileModal
+          )}          <ProfileModal
             open={profileOpen}
             onClose={handleProfileClose}
             profileData={selectedProfile}
             userProfile={userProfile}
             setUserProfile={setUserProfile}
             sx={{ backgroundColor: "#0068ff" }}
+          />
+          <UserSearchModal
+            open={userSearchOpen}
+            onClose={() => setUserSearchOpen(false)}
           />
           <Dialog open={createGroupOpen} onClose={() => setCreateGroupOpen(false)}>
             <DialogTitle>Tạo nhóm mới</DialogTitle>
