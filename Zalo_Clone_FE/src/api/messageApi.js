@@ -53,6 +53,9 @@ export const getGroupChatHistory = async (groupId, token) => {
 
 // Hàm upload file
 export const uploadFile = async (files, receiverId, token, groupId = null, replyToMessageId = null) => {
+  if (!stompClient || !stompClient.connected) {
+    throw new Error('Không thể gửi file: WebSocket không hoạt động');
+  }
   try {
     const formData = new FormData();
     files.forEach(file => {
@@ -70,7 +73,11 @@ export const uploadFile = async (files, receiverId, token, groupId = null, reply
     });
     return response.data;
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Error uploading file:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -230,11 +237,26 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
         try {
           const parsedMessage = JSON.parse(message.body);
           console.log('Raw WebSocket response:', parsedMessage);
-          if (parsedMessage._id) {
-            parsedMessage.id = parsedMessage._id;
-            delete parsedMessage._id;
+          const normalizedMessage = {
+            id: parsedMessage._id || parsedMessage.id,
+            senderId: parsedMessage.senderId,
+            receiverId: parsedMessage.receiverId,
+            groupId: parsedMessage.groupId,
+            content: parsedMessage.content,
+            type: parsedMessage.type || 'TEXT',
+            createAt: parsedMessage.createdAt || parsedMessage.createAt || new Date().toISOString(),
+            recalled: parsedMessage.recalled || false,
+            deletedByUsers: parsedMessage.deletedByUsers || [],
+            isRead: parsedMessage.isRead || false,
+            isPinned: parsedMessage.isPinned || false,
+            fileName: parsedMessage.fileName || '',
+            thumbnail: parsedMessage.thumbnail || '',
+            publicId: parsedMessage.publicId || '',
+          };
+          const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
+          if (!deletedMessageIds.includes(normalizedMessage.id)) {
+            onMessageCallback(normalizedMessage);
           }
-          onMessageCallback(parsedMessage);
         } catch (error) {
           console.error('Error parsing message:', error);
         }
@@ -247,11 +269,26 @@ export function connectWebSocket(token, userId, onMessageCallback, onDeleteCallb
             try {
               const parsedMessage = JSON.parse(message.body);
               console.log('Raw group WebSocket response:', parsedMessage);
-              if (parsedMessage._id) {
-                parsedMessage.id = parsedMessage._id;
-                delete parsedMessage._id;
+              const normalizedMessage = {
+                id: parsedMessage._id || parsedMessage.id,
+                senderId: parsedMessage.senderId,
+                receiverId: parsedMessage.receiverId,
+                groupId: parsedMessage.groupId,
+                content: parsedMessage.content,
+                type: parsedMessage.type || 'TEXT',
+                createAt: parsedMessage.createdAt || parsedMessage.createAt || new Date().toISOString(),
+                recalled: parsedMessage.recalled || false,
+                deletedByUsers: parsedMessage.deletedByUsers || [],
+                isRead: parsedMessage.isRead || false,
+                isPinned: parsedMessage.isPinned || false,
+                fileName: parsedMessage.fileName || '',
+                thumbnail: parsedMessage.thumbnail || '',
+                publicId: parsedMessage.publicId || '',
+              };
+              const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
+              if (!deletedMessageIds.includes(normalizedMessage.id)) {
+                onMessageCallback(normalizedMessage);
               }
-              onMessageCallback(parsedMessage);
             } catch (error) {
               console.error('Error parsing group message:', error);
             }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button } from '@mui/material';
+import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button, CircularProgress } from '@mui/material';
 import { BiSearch, BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin } from 'react-icons/bi';
 import Picker from 'emoji-picker-react';
 import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, pinMessage, unpinMessage, getPinnedMessages } from '../../api/messageApi';
@@ -197,42 +197,13 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
 
     setIsSending(true);
     try {
-      const fileUrls = await uploadFile(
+      const response = await uploadFile(
         files,
         selectedContact.isGroup ? null : selectedContact.id,
         token,
         selectedContact.isGroup ? selectedContact.id : null
       );
-      fileUrls.forEach(url => {
-        const file = files[0];
-        const contentType = file.type || '';
-        let type = 'FILE';
-        if (contentType.startsWith('image/')) {
-          type = 'IMAGE';
-        } else if (contentType.startsWith('video/')) {
-          type = 'VIDEO';
-        } else if (contentType.startsWith('audio/')) {
-          type = 'AUDIO';
-        } else if (contentType === 'application/zip' || contentType === 'application/x-rar-compressed') {
-          type = 'FILE';
-        }
-        const tempKey = `${Date.now()}-${url}`;
-        const message = {
-          senderId: userId,
-          [selectedContact.isGroup ? 'groupId' : 'receiverId']: selectedContact.id,
-          content: url,
-          type: type,
-          tempKey: tempKey,
-          createAt: new Date().toISOString(),
-          recalled: false,
-          deletedByUsers: [],
-          isRead: false,
-          isPinned: false,
-        };
-        console.log('Sending message:', message);
-        onSendMessage(message);
-      });
-      toast.success('File đã được gửi!');
+      toast.success('File đang được gửi...');
     } catch (error) {
       console.error('Error uploading file:', {
         message: error.message,
@@ -550,6 +521,11 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       )}
 
       <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: '#f0f0f0', position: 'relative' }}>
+        {isSending && (
+          <Box display="flex" justifyContent="center" my={2}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
         {localMessages.map((message, index) => (
           <MessageContainer
             key={message.id ? `${message.id}-${index}` : (message.tempKey ? `${message.tempKey}-${index}` : `${message.createAt}-${message.senderId}-${index}`)}
@@ -641,15 +617,17 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                     <Typography>{message.content}</Typography>
                   </Box>
                 </>
-              ) : (
+              ) : message.type === 'FILE' ? (
                 <>
                   {selectedContact.isGroup && message.senderId !== userId && (
                     <Typography variant="caption" display="block" sx={{ opacity: 0.7, mb: 1 }}>
                       {groupMembers.find(m => m.id === message.senderId)?.username || 'Unknown'}
                     </Typography>
                   )}
-                  <a href={message.content} target="_blank" rel="noopener noreferrer">Xem file</a>
+                  <a href={message.content} target="_blank" rel="noopener noreferrer">{message.fileName || 'Xem file'}</a>
                 </>
+              ) : (
+                <Typography>Loại tin nhắn không được hỗ trợ</Typography>
               )}
               <Typography variant="caption" display="block" textAlign="right" sx={{ opacity: 0.7 }}>
                 {new Date(message.createAt).toLocaleTimeString()}
@@ -735,7 +713,8 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                       <BiPin />
                     </IconButton>
                   }
-                >                  <ListItemText
+                >
+                  <ListItemText
                     primary={
                       message.type === 'IMAGE' ? (
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -750,7 +729,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
                       ) : message.type === 'AUDIO' ? (
                         <Typography>[Âm thanh]</Typography>
                       ) : message.type === 'FILE' ? (
-                        <Typography>[Tệp đính kèm]</Typography>
+                        <Typography>{message.fileName || '[Tệp đính kèm]'}</Typography>
                       ) : (
                         message.content
                       )
