@@ -12,6 +12,8 @@ package vn.edu.iuh.fit.zalo_app_be.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import vn.edu.iuh.fit.zalo_app_be.common.CallStatus;
 import vn.edu.iuh.fit.zalo_app_be.common.CallType;
@@ -40,22 +42,8 @@ public class CallServiceImpl implements CallService {
     private final WebSocketService webSocketService;
 
     @Override
-    public void initiateCall(String callerId, String receiverId, CallType callType, String groupId, Object spdOffer) {
-        if (userRepository.findById(callerId).isEmpty()) {
-            throw new ResourceNotFoundException("User not found with id: " + callerId);
-        }
-        if (receiverId == null || userRepository.findById(receiverId).isEmpty()) {
-            throw new ResourceNotFoundException("User not found with id: " + receiverId);
-        }
-        if (groupId != null) {
-            Optional<Group> groupOptional = groupRepository.findById(groupId);
-            if (groupRepository.findById(groupId).isEmpty()) {
-                throw new ResourceNotFoundException("Group not found with id: " + groupId);
-            }
-            if (groupOptional.get().isActive() || !groupOptional.get().getMemberIds().contains(callerId)) {
-                throw new ResourceNotFoundException("Group is not active with id: " + groupId);
-            }
-        }
+    public Call initiateCall(String callerId, String receiverId, CallType callType, String groupId, Object spdOffer) {
+        validateCall(callerId, receiverId, groupId);
 
         Call call = new Call();
         call.setCallerId(callerId);
@@ -74,31 +62,142 @@ public class CallServiceImpl implements CallService {
         if (groupId != null) {
             Optional<Group> groupOptional = groupRepository.findById(groupId);
             if (groupOptional.isEmpty()) {
-                throw  new ResourceNotFoundException("Group not found with id: " + groupId);
+                throw new ResourceNotFoundException("Group not found with id: " + groupId);
             }
             webSocketService.notifyGroupInitiated(call.getId(), callType, callerId, groupOptional.get(), spdOffer);
+        }else {
+            webSocketService.notifyCallInitiated(call.getId(), callType, callerId, receiverId, spdOffer);
         }
+
+        return call;
     }
 
     @Override
-    public void answerCall(String callId, String receiverId, Object spdAnswer) {
+    public Call answerCall(String callId, String receiverId, Object spdAnswer) {
+        Optional<Call> callOptional = callRepository.findById(callId);
+        if (callOptional.isEmpty()) {
+            throw new ResourceNotFoundException("Call not found with id: " + callId);
+        }
 
+        if (callOptional.get().getGroupId().isEmpty()) {
+            if (!callOptional.get().getReceiverId().equals(receiverId)) {
+                throw new ResourceNotFoundException("User not authorized to answer this call");
+            }
+        } else {
+            Optional<Group> groupOptional = groupRepository.findById(callOptional.get().getGroupId());
+            if (groupOptional.isEmpty()) {
+                throw new ResourceNotFoundException("Group not found with id: " + callOptional.get().getGroupId());
+            }
+            if (!groupOptional.get().getMemberIds().contains(receiverId)) {
+                throw new ResourceNotFoundException("User not authorized to answer this call");
+            }
+        }
+
+        if (!callOptional.get().getParticipantIds().contains(receiverId)) {
+            callOptional.get().getParticipantIds().add(receiverId);
+        }
+
+        callOptional.get().setCallStatus(CallStatus.ACTIVE);
+
+        callRepository.save(callOptional.get());
+
+        String callerId = callOptional.get().getCallerId();
+        String groupId = callOptional.get().getGroupId();
+        if (groupId != null) {
+            Optional<Group> groupOptional = groupRepository.findById(groupId);
+            if (groupOptional.isEmpty()) {
+                throw new ResourceNotFoundException("Group not found with id: " + groupId);
+            }
+            webSocketService.notifyGroupCallAnswer(callId, callerId, groupOptional.get(), spdAnswer);
+        } else {
+            webSocketService.notifyCallAnswer(callId, callerId, spdAnswer);
+        }
+
+        return callOptional.get();
     }
 
 
     @Override
-    public void endCall(String callId, String userId) {
+    public Call endCall(String callId, String userId) {
+        Optional<Call> callOptional = callRepository.findById(callId);
+        if (callOptional.isEmpty()) {
+            throw new ResourceNotFoundException("Call not found with id: " + callId);
+        }
 
+        if (userRepository.findById(userId).isEmpty()) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
+        }
+
+        if (!callOptional.get().getParticipantIds().contains(userId)) {
+            throw new ResourceNotFoundException("User not authorized to end this call");
+        }
+
+        callOptional.get().setCallStatus(CallStatus.ENDED);
+
+        callOptional.get().setEndAt(LocalDateTime.now());
+
+        callRepository.save(callOptional.get());
+
+        String groupId = callOptional.get().getGroupId();
+
+        if (groupId != null) {
+            Optional<Group> groupOptional = groupRepository.findById(groupId);
+            if (groupOptional.isEmpty()) {
+                throw new ResourceNotFoundException("Group not found with id: " + groupId);
+            }
+            webSocketService.notifyGroupCallEnd(callId, userId, groupOptional.get());
+            log.info("Call group ended: {}", callOptional.get());
+        } else {
+            webSocketService.notifyCallEnd(callId, userId);
+            log.info("Call ended: {}", callOptional.get());
+        }
+
+        return callOptional.get();
     }
 
     @Override
     public void sendIceCandidate(String callId, String receiverId, Object candidate) {
+        Optional<Call> callOptional = callRepository.findById(callId);
+        if (callOptional.isEmpty()) {
+            throw new ResourceNotFoundException("Call not found with id: " + callId);
+        }
+        if (callOptional.get().getGroupId().isEmpty()) {
+            if (!callOptional.get().getReceiverId().equals(receiverId)) {
+                throw new ResourceNotFoundException("User not authorized to send ICE candidate");
+            }
+        } else {
+            Optional<Group> groupOptional = groupRepository.findById(callOptional.get().getGroupId());
+            if (groupOptional.isEmpty()) {
+                throw new ResourceNotFoundException("Group not found with id: " + callOptional.get().getGroupId());
+            }
+            if (!groupOptional.get().getMemberIds().contains(receiverId)) {
+                throw new ResourceNotFoundException("User not authorized to send ICE candidate");
+            }
+        }
 
+        String groupId = callOptional.get().getGroupId();
+        if (groupId != null) {
+            Optional<Group> groupOptional = groupRepository.findById(groupId);
+            if (groupOptional.isEmpty()) {
+                throw new ResourceNotFoundException("Group not found with id: " + groupId);
+            }
+            webSocketService.notifyGroupIceCandidate(callId, receiverId, groupOptional.get(), candidate);
+            log.info("ICE candidate sent group: {}", candidate);
+        } else {
+            webSocketService.notifyIceCandidate(callId, receiverId, candidate);
+            log.info("ICE candidate sent: {}", candidate);
+        }
     }
 
     @Override
-    public List<Call> getCallHistory() {
-        return List.of();
+    public List<Call> getCallHistory(String userId) {
+        if (userRepository.findById(userId).isEmpty()) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
+        }
+
+        List<Call> callHistory = callRepository.findByCallerIdOrParticipantIdsContaining(userId, userId);
+        log.info("Call history retrieved for user {}: {}", userId, callHistory);
+        return callHistory;
     }
 
     public CallResponse convertToMessageResponse(Call call) {
@@ -114,5 +213,23 @@ public class CallServiceImpl implements CallService {
                 call.getEndAt(),
                 call.getUpdatedAt()
         );
+    }
+
+    private void validateCall(String callerId, String receiverId, String groupId) {
+        if (userRepository.findById(callerId).isEmpty()) {
+            throw new ResourceNotFoundException("User not found with id: " + callerId);
+        }
+        if (receiverId == null || userRepository.findById(receiverId).isEmpty()) {
+            throw new ResourceNotFoundException("User not found with id: " + receiverId);
+        }
+        if (groupId != null) {
+            Optional<Group> groupOptional = groupRepository.findById(groupId);
+            if (groupRepository.findById(groupId).isEmpty()) {
+                throw new ResourceNotFoundException("Group not found with id: " + groupId);
+            }
+            if (groupOptional.get().isActive() || !groupOptional.get().getMemberIds().contains(callerId)) {
+                throw new ResourceNotFoundException("Group is not active with id: " + groupId);
+            }
+        }
     }
 }

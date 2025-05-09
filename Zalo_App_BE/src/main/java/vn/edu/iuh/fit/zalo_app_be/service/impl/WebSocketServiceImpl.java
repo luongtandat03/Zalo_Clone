@@ -19,6 +19,7 @@ import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.MessageSendException;
+import vn.edu.iuh.fit.zalo_app_be.exception.ResourceNotFoundException;
 import vn.edu.iuh.fit.zalo_app_be.model.Group;
 import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
@@ -34,7 +35,6 @@ import java.util.Map;
 @Slf4j(topic = "WEB-SOCKET-SERVICE")
 public class WebSocketServiceImpl implements WebSocketService {
     private final SimpMessagingTemplate template;
-    private final GroupRepository groupRepository;
     private final MessageService messageService;
     private final MessageRepository messageRepository;
 
@@ -57,7 +57,7 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public void sendGroupMessage(MessageRequest request) {
-        if(request.getType() == MessageType.FORWARD) {
+        if (request.getType() == MessageType.FORWARD) {
             template.convertAndSend("/topic/group" + request.getGroupId(), request.getResponse());
             log.info("Forwarded message from {} to group {}: {}", request.getSenderId(), request.getGroupId(), request.getContent());
         }
@@ -72,6 +72,11 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public void notifyFriendRequest(String senderId, String receiverId) {
+        if (senderId == null || receiverId == null) {
+            log.error("Cannot send friend request notification: senderId or receiverId is null");
+            throw new ResourceNotFoundException("Cannot send friend request notification: senderId or receiverId is null");
+        }
+
         Map<String, Object> notification = new HashMap<>();
         notification.put("senderId", senderId);
         notification.put("receiverId", receiverId);
@@ -169,6 +174,23 @@ public class WebSocketServiceImpl implements WebSocketService {
         MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
         template.convertAndSendToUser(userId, "/queue/read", response);
         log.info("Read notification sent for message {} to user {}", messageId, userId);
+    }
+
+    @Override
+    public void notifyEdit(String messageId, String userId, String content) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/edit", response);
+        if (!userId.equals(response.getReceiverId())) {
+            template.convertAndSendToUser(response.getReceiverId(), "/queue/edit", response);
+        }
+
+        log.info("Edit notification sent for message {} to user {}", messageId, userId);
+    }
+
+    public void notifyGroupEdit(String messageId, String userId, String groupId) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSend("/topic/group/" + groupId, response);
+        log.info("Group edit notification sent for message {} to user {}", messageId, userId);
     }
 
     @Override

@@ -68,7 +68,7 @@ const ContactList = ({
                     variant="contained"
                     color="primary"
                     size="small"
-                    onClick={() => onAcceptFriendRequest(request.id)}
+                    onClick={() => onAcceptFriendRequest(request.requestId)}
                     disabled={isLoading}
                   >
                     Chấp nhận
@@ -133,7 +133,6 @@ const ContactList = ({
         ))}
       </List>
 
-      {/* Use our new ProfileModal component */}
       <ProfileModal
         open={isProfileOpen}
         onClose={handleProfileClose}

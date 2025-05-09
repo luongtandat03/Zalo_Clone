@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button } from '@mui/material';
 import { BiSearch, BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin } from 'react-icons/bi';
 import Picker from 'emoji-picker-react';
-import { uploadFile, forwardMessage, getPinnedMessages } from '../../api/messageApi';
+import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, pinMessage, unpinMessage, getPinnedMessages } from '../../api/messageApi';
 import { fetchGroupMembers } from '../../api/groupApi';
 import SearchMessages from '../../components/SearchMessages';
 import FriendModal from './FriendModal';
@@ -26,10 +26,7 @@ const MessageContainer = styled(Box, {
   alignItems: 'center',
 }));
 
-// Sửa lỗi isSender bằng cách thêm shouldForwardProp
-const MessageBubble = styled(Paper, {
-  shouldForwardProp: (prop) => prop !== 'isSender',
-})(({ isSender, theme }) => ({
+const MessageBubble = styled(Paper)(({ isSender, theme }) => ({
   padding: '8px 16px',
   backgroundColor: isSender ? theme.palette.primary.main : '#ffffff',
   color: isSender ? 'white' : 'black',
@@ -44,23 +41,7 @@ const PinIndicator = styled(Box)(({ theme }) => ({
   color: theme.palette.warning.main,
 }));
 
-const ChatWindow = ({ 
-  selectedContact, 
-  messages, 
-  messageInput, 
-  onMessageInputChange, 
-  onSendMessage, 
-  onSendMessageToServer, 
-  onProfileOpen, 
-  onDeleteMessage, 
-  onRecallMessage,
-  onPinMessage,
-  onUnpinMessage,
-  userId, 
-  contacts, 
-  token,
-  isWebSocketConnected 
-}) => {
+const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputChange, onSendMessage, onProfileOpen, userId, contacts, token }) => {
   const [localMessages, setLocalMessages] = useState(messages);
   const [isSending, setIsSending] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
@@ -153,11 +134,6 @@ const ChatWindow = ({
       return;
     }
 
-    if (!isWebSocketConnected) {
-      toast.error('Đang mất kết nối với máy chủ, vui lòng thử lại sau');
-      return;
-    }
-
     setIsSending(true);
 
     const tempKey = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -171,8 +147,7 @@ const ChatWindow = ({
 
     try {
       console.log('Attempting to send message:', message);
-      const success = onSendMessageToServer ? onSendMessageToServer(message) : false;
-      
+      const success = sendMessage('/app/chat.send', message, token);
       if (success) {
         const newMessage = {
           ...message,
@@ -213,11 +188,6 @@ const ChatWindow = ({
       toast.error('Không tìm thấy ID liên hệ hoặc nhóm');
       return;
     }
-    
-    if (!isWebSocketConnected) {
-      toast.error('Đang mất kết nối với máy chủ, vui lòng thử lại sau');
-      return;
-    }
 
     console.log('Uploading files:', {
       isGroup: selectedContact.isGroup,
@@ -253,23 +223,14 @@ const ChatWindow = ({
           content: url,
           type: type,
           tempKey: tempKey,
+          createAt: new Date().toISOString(),
+          recalled: false,
+          deletedByUsers: [],
+          isRead: false,
+          isPinned: false,
         };
-        
-        const success = onSendMessageToServer ? onSendMessageToServer(message) : false;
-        
-        if (success) {
-          const newMessage = {
-            ...message,
-            createAt: new Date().toISOString(),
-            recalled: false,
-            deletedByUsers: [],
-            isRead: false,
-            isPinned: false,
-          };
-          onSendMessage(newMessage);
-        } else {
-          toast.error('Không thể gửi tin nhắn: WebSocket không hoạt động');
-        }
+        console.log('Sending message:', message);
+        onSendMessage(message);
       });
       toast.success('File đã được gửi!');
     } catch (error) {
@@ -299,9 +260,7 @@ const ChatWindow = ({
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      
-      const success = onRecallMessage ? onRecallMessage(identifier) : false;
-      
+      const success = recallMessage(identifier, userId, token);
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
@@ -334,9 +293,7 @@ const ChatWindow = ({
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      
-      const success = onDeleteMessage ? onDeleteMessage(identifier) : false;
-      
+      const success = deleteMessage(identifier, userId, token);
       if (success) {
         const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
         if (message.id && !deletedMessageIds.includes(message.id)) {
@@ -375,9 +332,7 @@ const ChatWindow = ({
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      
-      const success = onPinMessage ? onPinMessage(identifier) : false;
-      
+      const success = pinMessage(identifier, userId, token);
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
@@ -410,9 +365,7 @@ const ChatWindow = ({
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      
-      const success = onUnpinMessage ? onUnpinMessage(identifier) : false;
-      
+      const success = unpinMessage(identifier, userId, token);
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
@@ -440,8 +393,7 @@ const ChatWindow = ({
     }
 
     try {
-      const success = onUnpinMessage ? onUnpinMessage(message.id) : false;
-      
+      const success = await unpinMessage(message.id, userId, token);
       if (success) {
         setPinnedMessages((prev) => prev.filter((msg) => msg.id !== message.id));
         setLocalMessages((prev) =>

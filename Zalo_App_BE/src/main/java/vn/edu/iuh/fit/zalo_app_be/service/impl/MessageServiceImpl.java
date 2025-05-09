@@ -35,6 +35,8 @@ import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -61,7 +63,7 @@ public class MessageServiceImpl implements MessageService {
             message.setGroupId(request.getGroupId());
             message.setContent(request.getContent());
             MessageType type = request.getType() != null ? request.getType() : MessageType.TEXT;
-            if (type == MessageType.GIF || type == MessageType.STICKER || type == MessageType.EMOJI) {
+            if (type == MessageType.GIF || type == MessageType.STICKER) {
                 if (!isValidUrl(request.getContent())) {
                     throw new ResourceNotFoundException("URL is not valid");
                 }
@@ -135,24 +137,39 @@ public class MessageServiceImpl implements MessageService {
             String fileExtension = originalFileName.contains(".") ? originalFileName.substring(originalFileName.lastIndexOf(".")) : "";
             String sanitizedFileName = originalFileName.replaceAll("[^a-zA-Z0-9.-]", "_");
 
-            String publicId = "chat_files/" + sanitizedFileName + fileExtension;
+            String publicId = sanitizedFileName + fileExtension;
+
+            log.info("Uploading file to Cloudinary: {} with public ID: {}", originalFileName, publicId);
 
             Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", resourceType, "folder", "chat_files", "public_id", publicId));
             String url = (String) uploadResult.get("secure_url");
             String cloudinaryPublicId = (String) uploadResult.get("public_id");
             String thumbnail = (type == MessageType.VIDEO || type == MessageType.AUDIO) ? (String) uploadResult.get("thumbnail") : null;
 
+            String version = extractVersionFromUrl(url);
+            if (version == null) {
+                log.warn("Could not extract version from Secure URL: {}", url);
+            }
+
             Map resourceInfo = cloudinary.api().resource(cloudinaryPublicId, ObjectUtils.asMap("resource_type", resourceType));
             if (resourceInfo == null || !url.equals(resourceInfo.get("secure_url"))) {
                 throw new ResourceNotFoundException("Upload file not found on Cloudinary");
             }
 
+            Map<String, String> signatureParams = new HashMap<>();
+            signatureParams.put("public_id", cloudinaryPublicId);
+            signatureParams.put("resource_type", resourceType);
+            String signedUrl = cloudinary.url()
+                    .secure(true)
+                    .resourceType(resourceType)
+                    .generate(cloudinaryPublicId);
+
             Message message = new Message();
             message.setSenderId(request.getSenderId());
             message.setReceiverId(request.getReceiverId());
-            message.setGroupId(request.getGroupId()); // Thêm dòng này
+            message.setGroupId(request.getGroupId());
             message.setType(type);
-            message.setContent(url);
+            message.setContent(signedUrl);
             message.setThumbnail(thumbnail);
             message.setPublicId(cloudinaryPublicId);
             message.setFileName(originalFileName);
@@ -167,11 +184,12 @@ public class MessageServiceImpl implements MessageService {
             log.info("File uploaded: {} with origin name: {} for sender: {}", originalFileName, originalFileName, request.getSenderId());
 
             return Map.of(
-                    "url", url,
+                    "url", signedUrl,
                     "type", type.toString(),
                     "thumbnail", thumbnail != null ? thumbnail : "",
                     "fileName", originalFileName,
-                    "publicId", cloudinaryPublicId != null ? cloudinaryPublicId : ""
+                    "publicId", cloudinaryPublicId != null ? cloudinaryPublicId : "",
+                    "version", version != null ? version : ""
             );
 
         } catch (Exception e) {
@@ -216,8 +234,8 @@ public class MessageServiceImpl implements MessageService {
                 throw new ResourceNotFoundException("User not found");
             }
             message.setRecalled(true);
-            message.setContentAfterRecallOrDelete(messageOptional.get().getContent());
-            message.setContent(message.getContent());
+            message.setContentAfterRecallOrDeleteOrEdit(messageOptional.get().getContent());
+            message.setContent("Tin nhắn đã được thu hồi");
             messageRepository.save(message);
             log.info("Message recalled: {} for sender: {}", messageId, message.getSenderId());
         } else {
@@ -235,7 +253,7 @@ public class MessageServiceImpl implements MessageService {
         Message message = messageOptional.get();
         Map<String, LocalDateTime> deleteBy = message.getDeleteBy();
         deleteBy.put(userId, LocalDateTime.now());
-        message.setContentAfterRecallOrDelete(messageOptional.get().getContent());
+        message.setContentAfterRecallOrDeleteOrEdit(messageOptional.get().getContent());
         message.setContent("Tin nhắn đã bị xóa");
         message.setDeleteBy(deleteBy);
 
@@ -250,18 +268,36 @@ public class MessageServiceImpl implements MessageService {
         if (messageOptional.isEmpty()) {
             throw new ResourceNotFoundException("Message not found");
         }
-        if(groupId != null) {
-            if(groupRepository.findById(groupId).isEmpty()){
+        if (groupId != null) {
+            if (groupRepository.findById(groupId).isEmpty()) {
                 throw new ResourceNotFoundException("Group not found");
             }
         }
 
-        MessageResponse response = convertToMessageResponse(messageOptional.get());
-        response.setForwardedFrom((new MessageReference(messageId, userId, LocalDateTime.now())));
+        Message forwardMessage = new Message();
+        forwardMessage.setSenderId(userId);
+        forwardMessage.setReceiverId(receiverId);
+        forwardMessage.setGroupId(groupId);
+        forwardMessage.setContent(messageOptional.get().getContent());
+        forwardMessage.setType(MessageType.FORWARD); // Đặt type là FORWARD
+        forwardMessage.setImageUrls(messageOptional.get().getImageUrls());
+        forwardMessage.setVideoInfos(messageOptional.get().getVideoInfos());
+        forwardMessage.setFileName(messageOptional.get().getFileName());
+        forwardMessage.setThumbnail(messageOptional.get().getThumbnail());
+        forwardMessage.setPublicId(messageOptional.get().getPublicId());
+        forwardMessage.setReplyToMessageId(messageOptional.get().getReplyToMessageId());
+        forwardMessage.setStatus(MessageStatus.SENT);
+        forwardMessage.setCreatedAt(LocalDateTime.now());
+        forwardMessage.setUpdatedAt(LocalDateTime.now());
+        forwardMessage.setRead(false);
+        forwardMessage.setPinned(false);
+        forwardMessage.setForwardedFrom(new MessageReference(messageId, messageOptional.get().getSenderId(), LocalDateTime.now()));
+
+        // Lưu tin nhắn
+        Message savedMessage = messageRepository.save(forwardMessage);
 
         log.info("Message forwarded: {} for sender: {}", messageId, userId);
-
-        return response;
+        return convertToMessageResponse(savedMessage);
     }
 
     @Override
@@ -278,6 +314,33 @@ public class MessageServiceImpl implements MessageService {
             }
         } else {
             throw new ResourceNotFoundException("Message not found");
+        }
+    }
+
+    @Override
+    public void editMessage(String messageId, String userId, String content) {
+        Optional<Message> messageOptional = messageRepository.findById(messageId);
+        if (messageOptional.isEmpty()) {
+            throw new ResourceNotFoundException("Message not found");
+        }
+
+        Message message = messageOptional.get();
+        if (message.isRecalled()) {
+            throw new ResourceNotFoundException("Message is recalled");
+        }
+
+        if (message.getDeleteBy() == null) {
+            throw new ResourceNotFoundException("Message is deleted");
+        }
+
+        if (message.getSenderId().equals(userId)) {
+            message.setContentAfterRecallOrDeleteOrEdit(messageOptional.get().getContent());
+            message.setContent(content);
+            message.setEditId(true);
+            messageRepository.save(message);
+            log.info("Message edited: {} for sender: {}", messageId, userId);
+        } else {
+            throw new ResourceNotFoundException("Only sender have permission to edit this message");
         }
     }
 
@@ -419,6 +482,18 @@ public class MessageServiceImpl implements MessageService {
             return false;
         }
     }
+    private String extractVersionFromUrl(String secureUrl) {
+        if (secureUrl == null) {
+            return null;
+        }
 
-}
+        Pattern pattern = Pattern.compile("/v(\\d+)/");
+        Matcher matcher = pattern.matcher(secureUrl);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+
+    }
+    }
 

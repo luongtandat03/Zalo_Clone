@@ -62,6 +62,11 @@ public class MessageController {
 
         log.debug("Uploading files: senderId={}, groupId={}, receiverId={}", senderId, groupId, receiverId);
 
+        if (files == null || files.isEmpty()) {
+            log.info("No files to upload");
+            return ResponseEntity.badRequest().body(List.of(Map.of("message", "No files to upload")));
+        }
+
         List<Map<String, String>> fileResults = new ArrayList<>();
         for (MultipartFile file : files) {
             MessageRequest request = new MessageRequest();

@@ -36,6 +36,8 @@ public interface MessageService {
 
     void readMessage(String messageId, String receiverId);
 
+    void editMessage(String messageId, String userId,String content);
+
     MessageResponse convertToMessageResponse(Message message);
 
     void pinMessage(String messageId, String userId);
