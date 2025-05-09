@@ -31,10 +31,13 @@ import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.UserRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
+import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,6 +48,7 @@ public class MessageServiceImpl implements MessageService {
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final Cloudinary cloudinary;
+    private final WebSocketService webSocketService;
 
     @Override
     public MessageResponse saveMessage(MessageRequest request) {
@@ -120,6 +124,24 @@ public class MessageServiceImpl implements MessageService {
                     resourceType = "video";
                     type = MessageType.VIDEO;
                 } else if (contentType.startsWith("audio/")) {
+                    List<String> allowedAudioTypes = Arrays.asList("audio/mpeg", "audio/wav", "audio/ogg", "audio/aac", "application/ogg");
+                    if (!allowedAudioTypes.contains(contentType)) {
+                        log.error("Unsupported audio type: {}", contentType);
+                        throw new ResourceNotFoundException("Unsupported audio type. Only MP3, WAV, OGG, and AAC are allowed");
+                    }
+                    // Kiểm tra phần mở rộng file để đảm bảo tính hợp lệ
+                    if (!originalFileName.toLowerCase().endsWith(".ogg") &&
+                            !originalFileName.toLowerCase().endsWith(".mp3") &&
+                            !originalFileName.toLowerCase().endsWith(".wav") &&
+                            !originalFileName.toLowerCase().endsWith(".aac")) {
+                        log.error("File extension does not match supported audio types: {}", originalFileName);
+                        throw new ResourceNotFoundException("File extension does not match supported audio types. Only .ogg, .mp3, .wav, and .aac are allowed");
+                    }
+                    // Kiểm tra kích thước riêng cho audio (Cloudinary giới hạn 10MB cho tài khoản miễn phí)
+                    if (file.getSize() > 10 * 1024 * 1024) {
+                        log.error("Audio file size exceeds Cloudinary limit: {} bytes", file.getSize());
+                        throw new ResourceNotFoundException("Audio file size exceeds Cloudinary limit (10MB)");
+                    }
                     resourceType = "audio";
                     type = MessageType.AUDIO;
                 } else {
@@ -135,7 +157,7 @@ public class MessageServiceImpl implements MessageService {
             String fileExtension = originalFileName.contains(".") ? originalFileName.substring(originalFileName.lastIndexOf(".")) : "";
             String sanitizedFileName = originalFileName.replaceAll("[^a-zA-Z0-9.-]", "_");
 
-            String publicId = "chat_files/" + sanitizedFileName + fileExtension;
+            String publicId = sanitizedFileName + fileExtension;
 
             log.info("Uploading file to Cloudinary: {} with public ID: {}", originalFileName, publicId);
 
@@ -143,6 +165,11 @@ public class MessageServiceImpl implements MessageService {
             String url = (String) uploadResult.get("secure_url");
             String cloudinaryPublicId = (String) uploadResult.get("public_id");
             String thumbnail = (type == MessageType.VIDEO || type == MessageType.AUDIO) ? (String) uploadResult.get("thumbnail") : null;
+
+            String version = extractVersionFromUrl(url);
+            if (version == null) {
+                log.warn("Could not extract version from Secure URL: {}", url);
+            }
 
             Map resourceInfo = cloudinary.api().resource(cloudinaryPublicId, ObjectUtils.asMap("resource_type", resourceType));
             if (resourceInfo == null || !url.equals(resourceInfo.get("secure_url"))) {
@@ -152,7 +179,10 @@ public class MessageServiceImpl implements MessageService {
             Map<String, String> signatureParams = new HashMap<>();
             signatureParams.put("public_id", cloudinaryPublicId);
             signatureParams.put("resource_type", resourceType);
-            String signedUrl = cloudinary.url().secure(true).generate(cloudinaryPublicId);
+            String signedUrl = cloudinary.url()
+                    .secure(true)
+                    .resourceType(resourceType)
+                    .generate(cloudinaryPublicId);
 
             Message message = new Message();
             message.setSenderId(request.getSenderId());
@@ -170,15 +200,23 @@ public class MessageServiceImpl implements MessageService {
             message.setRead(false);
 
 
-            messageRepository.save(message);
+            Message saveMessage = messageRepository.save(message);
             log.info("File uploaded: {} with origin name: {} for sender: {}", originalFileName, originalFileName, request.getSenderId());
 
+            MessageResponse messageResponse = convertToMessageResponse(saveMessage);
+
+            if (request.getGroupId() != null) {
+                webSocketService.sendGroupMessage(new MessageRequest(request.getSenderId(), null, request.getGroupId(), type, messageResponse));
+            } else {
+                webSocketService.sendMessage(new MessageRequest(request.getSenderId(), request.getReceiverId(), null, type, messageResponse));
+            }
             return Map.of(
-                    "url", signatureParams.toString(),
+                    "url", signedUrl,
                     "type", type.toString(),
                     "thumbnail", thumbnail != null ? thumbnail : "",
                     "fileName", originalFileName,
-                    "publicId", cloudinaryPublicId != null ? cloudinaryPublicId : ""
+                    "publicId", cloudinaryPublicId != null ? cloudinaryPublicId : "",
+                    "version", version != null ? version : ""
             );
 
         } catch (Exception e) {
@@ -470,6 +508,19 @@ public class MessageServiceImpl implements MessageService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private String extractVersionFromUrl(String secureUrl) {
+        if (secureUrl == null) {
+            return null;
+        }
+
+        Pattern pattern = Pattern.compile("/v(\\d+)/");
+        Matcher matcher = pattern.matcher(secureUrl);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
 }
