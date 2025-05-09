@@ -20,6 +20,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import vn.edu.iuh.fit.zalo_app_be.service.EmailService;
 
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 
@@ -72,7 +73,7 @@ public class EmailServiceImpl implements EmailService {
     private void setEmailContent(MimeMessage message, MimeMessageHelper helper, String subject, String content, String email) throws MessagingException {
         helper.setTo(email);
         helper.setSubject(subject);
-        helper.setText(content);
+        helper.setText(content, true);
     }
 
     /**

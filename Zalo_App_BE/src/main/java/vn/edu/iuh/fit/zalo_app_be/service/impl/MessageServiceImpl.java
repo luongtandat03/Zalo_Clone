@@ -357,7 +357,7 @@ public class MessageServiceImpl implements MessageService {
             throw new ResourceNotFoundException("Message is recalled");
         }
 
-        if (message.getDeleteBy() == null) {
+        if (message.getDeleteBy() != null) {
             throw new ResourceNotFoundException("Message is deleted");
         }
 

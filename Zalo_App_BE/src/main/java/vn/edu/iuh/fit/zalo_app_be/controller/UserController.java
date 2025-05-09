@@ -72,5 +72,10 @@ public class UserController {
         return userService.logoutUserCurrent(accessToken);
     }
 
+    @GetMapping("/get-user-by-phone/{phone}")
+    public UserResponse getUserByPhone(@PathVariable String phone) {
+        log.info("Get user by phone request: {}", phone);
 
+        return userService.getUserByPhone(phone);
+    }
 }
