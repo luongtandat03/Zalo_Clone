@@ -7,30 +7,73 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const [username, setUsername] = useState('');
+  const [avatarUri, setAvatarUri] = useState('');
 
   useEffect(() => {
-    const getUsername = async () => {
+    const getUserData = async () => {
       try {
         const storedUsername = await AsyncStorage.getItem('username');
         if (storedUsername) {
           setUsername(storedUsername);
+          const storedAvatarKey = `avatarUri_${storedUsername}`;
+          const storedAvatar = await AsyncStorage.getItem(storedAvatarKey);
+          if (storedAvatar) setAvatarUri(storedAvatar);
         }
       } catch (error) {
-        console.error('Lỗi khi lấy username:', error);
+        console.error('Lỗi khi lấy dữ liệu:', error);
       }
     };
 
-    getUsername();
+    getUserData();
   }, []);
 
+  const requestPermission = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Lỗi', 'Quyền truy cập vào thư viện ảnh bị từ chối!');
+      return false;
+    }
+    return true;
+  };
+
+  const pickImage = async () => {
+    const hasPermission = await requestPermission();
+    if (!hasPermission) return;
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      if (uri) {
+        setAvatarUri(uri);
+        const storedAvatarKey = `avatarUri_${username}`;
+        try {
+          await AsyncStorage.setItem(storedAvatarKey, uri);
+        } catch (error) {
+          console.error('Lỗi khi lưu avatar:', error);
+          Alert.alert('Lỗi', 'Không thể lưu ảnh avatar!');
+        }
+      } else {
+        console.error('URI không tồn tại trong kết quả:', result);
+        Alert.alert('Lỗi', 'Không thể lấy URI của ảnh!');
+      }
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -48,20 +91,21 @@ const ProfileScreen = () => {
       <ScrollView>
         {/* User Info */}
         <View style={styles.userInfo}>
-          <Image
-            source={{ uri: 'https://via.placeholder.com/80/808080/FFFFFF?Text=User' }} // Thay ảnh avatar của bạn
-            style={styles.avatar}
-          />
+          <TouchableOpacity onPress={pickImage}>
+            <Image
+              source={{ uri: avatarUri || 'https://via.placeholder.com/80/808080/FFFFFF?Text=User' }}
+              style={styles.avatar}
+            />
+          </TouchableOpacity>
           <View style={styles.userInfoText}>
-          <Text style={styles.name}>{username || 'Người dùng'}</Text>
-
+            <Text style={styles.name}>{username || 'Người dùng'}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('UserProfile')}>
               <Text style={styles.viewProfile}>Xem trang cá nhân</Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity style={styles.addFriendButton}>
             <Ionicons name="person-add-outline" size={24} color="#0084ff" />
-          </TouchableOpacity>l
+          </TouchableOpacity>
         </View>
 
         {/* zCloud */}
@@ -163,13 +207,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchButton: {
-    flex: 1, // Để nút tìm kiếm chiếm phần lớn chiều ngang
+    flex: 1,
     height: 40,
     borderRadius: 5,
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 10, // Tạo khoảng cách với icon bên trái (nếu có)
+    marginLeft: 10,
   },
   searchText: {
     color: 'white',
@@ -215,14 +259,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   listItemLeft: {
-    flexDirection: 'row', // Hiển thị icon và text theo chiều ngang
+    flexDirection: 'row',
     alignItems: 'center',
   },
   listItemIcon: {
-    marginRight: 15, // Tạo khoảng cách giữa icon và text
+    marginRight: 15,
   },
   listItemTextContainer: {
-    flexDirection: 'column', // Hiển thị tiêu đề và mô tả theo chiều dọc
+    flexDirection: 'column',
   },
   listItemTitle: {
     fontSize: 16,

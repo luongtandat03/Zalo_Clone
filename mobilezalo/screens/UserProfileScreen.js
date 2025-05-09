@@ -25,7 +25,7 @@ const UserProfileScreen = () => {
           return;
         }
 
-        const response = await fetch(`http://192.168.1.188:8080/user/get-info-for-user`, {
+        const response = await fetch(`http://192.168.1.182:8080/user/get-info-for-user`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`, // Gửi token để API xác thực

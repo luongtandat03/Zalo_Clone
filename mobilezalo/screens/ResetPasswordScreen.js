@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import axios from 'axios';
+import { resetPassword } from '../api/authApi';
 import { useNavigation } from '@react-navigation/native';
 
 const ResetPasswordScreen = () => {
   const navigation = useNavigation();
-  const [token, setToken] = useState('');
+  const [code, setCode] = useState(''); // Đổi từ token thành code
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleResetPassword = async () => {
-    if (!token || !newPassword || !confirmPassword) {
+    if (!code || !newPassword || !confirmPassword) {
       return Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
     }
 
@@ -19,18 +19,18 @@ const ResetPasswordScreen = () => {
       return Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp');
     }
 
+    console.log('Code:', code); // Log để kiểm tra giá trị code
+    console.log('New Password:', newPassword); // Log để kiểm tra giá trị password
+
     setLoading(true);
     try {
-      const res = await axios.post('http://192.168.1.188:8080/auth/reset-password', {
-        token,
-        newPassword,
-      });
-
-      Alert.alert('Thành công', 'Đổi mật khẩu thành công');
-      navigation.navigate('Login');
+      await resetPassword(code, newPassword); // Gọi hàm từ authApi.js
+      Alert.alert('Thành công', 'Đổi mật khẩu thành công', [
+        { text: 'OK', onPress: () => navigation.navigate('Login') },
+      ]);
     } catch (error) {
-      console.error(error);
-      Alert.alert('Lỗi', 'Không thể đặt lại mật khẩu. Token có thể đã hết hạn hoặc không hợp lệ.');
+      const errorMessage = error.message || 'Không thể đặt lại mật khẩu. Vui lòng kiểm tra mã xác nhận và thử lại.';
+      Alert.alert('Lỗi', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -42,9 +42,9 @@ const ResetPasswordScreen = () => {
 
       <TextInput
         style={styles.input}
-        placeholder="Nhập mã token từ email"
-        value={token}
-        onChangeText={setToken}
+        placeholder="Nhập mã xác nhận từ email"
+        value={code}
+        onChangeText={setCode}
         autoCapitalize="none"
       />
 
@@ -70,8 +70,6 @@ const ResetPasswordScreen = () => {
     </View>
   );
 };
-
-export default ResetPasswordScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -105,3 +103,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+export default ResetPasswordScreen;

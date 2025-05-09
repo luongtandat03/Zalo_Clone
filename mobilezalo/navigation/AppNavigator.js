@@ -18,6 +18,11 @@ import RegistrationDetailScreen from '../screens/RegistrationDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import FriendRequestsScreen from '../screens/FriendRequestsScreen';
+import ChatRoomScreen from '../screens/ChatRoomScreen';
+
+
+
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -39,6 +44,12 @@ const AppNavigator = () => {
       <Stack.Screen name="ChatList" component={ChatListScreen} /> 
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      <Stack.Screen name="Contacts" component={ContactsScreen} />
+      <Stack.Screen name="FriendRequestsScreen" component={FriendRequestsScreen} />
+      <Stack.Screen name="ChatRoomScreen" component={ChatRoomScreen} />
+
+
+
 
 
     </Stack.Navigator>

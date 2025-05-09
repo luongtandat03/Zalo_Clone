@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "../config";
-
 import axios from 'axios';
+
 export const login = async (email, password) => {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
@@ -52,20 +52,22 @@ export const forgotPassword = async (email) => {
   }
 };
 
-export const resetPassword = async (token, password) => {
+export const resetPassword = async (code, password) => {
   try {
+    const body = JSON.stringify({ code, password });
+    console.log("Reset password request body:", body); // Log để kiểm tra body
     const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token, password }),
+      body: body,
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Reset password failed");
+      throw new Error(data.error || "Invalid or expired reset code");
     }
 
     return data; // { message: "Password reset successfully" }
@@ -75,9 +77,10 @@ export const resetPassword = async (token, password) => {
   }
 };
 
-
 export const requestPasswordReset = async (email) => {
   try {
+    const body = JSON.stringify({ email });
+    console.log("Request password reset body:", body); // Log để kiểm tra body
     const response = await axios.post(`${API_BASE_URL}/auth/forgot-password`, { email });
     return response.data;
   } catch (error) {

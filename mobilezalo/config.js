@@ -1,1 +1,1 @@
-export const API_BASE_URL = "http://192.168.1.188:8080";
+export const API_BASE_URL = "https://chat-zalo-base.loca.lt";
