@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import { BiMessageSquareDetail, BiUser, BiCog, BiLogOut, BiExit } from "react-icons/bi";
 import { styled } from "@mui/material/styles";
-import { MdDataUsage, MdLanguage, MdHelpOutline } from "react-icons/md";
+
 
 const NavSidebarContainer = styled(Box)(({ theme }) => ({
   backgroundColor: "#0068ff",

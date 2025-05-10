@@ -4,8 +4,9 @@ import {
   InputAdornment, Typography, Button, Box
 } from "@mui/material";
 import { BiSearch, BiGroup } from "react-icons/bi";
-import { fetchFriendsList } from "../../api/user";
+import { fetchFriendsList, cancelFriendRequest } from "../../api/user";
 import ProfileModal from "./ProfileModal";
+import { toast } from "react-toastify";
 
 const ContactList = ({
   contacts,
@@ -14,10 +15,9 @@ const ContactList = ({
   pendingRequests,
   onAcceptFriendRequest,
   isLoading,
+  fetchPendingFriendRequests,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [profileData, setProfileData] = useState(null);
   const token = localStorage.getItem("accessToken");
   const userId = localStorage.getItem("userId");
 
@@ -25,14 +25,19 @@ const ContactList = ({
     contact.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleProfileOpen = (contact) => {
-    setProfileData(contact);
-    setIsProfileOpen(true);
-  };
 
-  const handleProfileClose = () => {
-    setIsProfileOpen(false);
-    setProfileData(null);
+  const handleCancelRequest = async (requestId) => {
+    try {
+      const result = await cancelFriendRequest(requestId);
+      if (result) {
+        toast.dismiss(); 
+        toast.success(result.message || "Đã hủy lời mời kết bạn ");
+        await fetchPendingFriendRequests();
+      }
+    } catch (error) {
+      toast.dismiss();
+      toast.error(error.message || "Hủy lời mời kết bạn thất bại");
+    }
   };
 
   return (
@@ -64,22 +69,34 @@ const ContactList = ({
               <ListItem
                 key={request.id}
                 secondaryAction={
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    onClick={() => onAcceptFriendRequest(request.id)}
-                    disabled={isLoading}
-                  >
-                    Chấp nhận
-                  </Button>
+                  <>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      onClick={() => onAcceptFriendRequest(request.requestId)}
+                      disabled={isLoading}
+                    >
+                      Chấp nhận
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="error"
+                      size="small"
+                      onClick={() => handleCancelRequest(request.requestId)}
+                      disabled={isLoading}
+                      sx={{ ml: 1 }}
+                    >
+                      Từ chối
+                    </Button>
+                  </>
                 }
               >
                 <ListItemAvatar>
                   <Avatar src={request.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde"} />
                 </ListItemAvatar>
                 <ListItemText
-                  primary={request.name}
+                  primary={request.lastName}
                   secondary="Đã gửi lời mời kết bạn"
                 />
               </ListItem>
@@ -106,13 +123,7 @@ const ContactList = ({
                 variant="dot"
                 color={contact.isGroup ? "default" : contact.status === "online" ? "success" : "error"}
               >
-                <Avatar
-                  src={contact.avatar}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleProfileOpen(contact);
-                  }}
-                >
+                <Avatar src={contact.avatar}>
                   {contact.isGroup && <BiGroup />}
                 </Avatar>
               </Badge>
@@ -133,11 +144,7 @@ const ContactList = ({
         ))}
       </List>
 
-      {/* Use our new ProfileModal component */}
       <ProfileModal
-        open={isProfileOpen}
-        onClose={handleProfileClose}
-        profileData={profileData}
         userId={userId}
         token={token}
         contacts={contacts}

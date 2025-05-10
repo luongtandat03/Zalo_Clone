@@ -38,7 +38,7 @@ const SettingGroup = ({ open, onClose, groupId, token }) => {
     if (!newMemberId.trim()) return;
     try {
       await addGroupMembers(groupId, [newMemberId], token);
-      await assignGroupRole(groupId, newMemberId, 'MEMBER', token); // gán role MEMBER
+      await assignGroupRole(groupId, newMemberId, 'MEMBER', token); 
       setNewMemberId('');
       loadMembers();
       setSnackbarMessage('Thêm thành viên và gán quyền thành công!');
@@ -77,6 +77,7 @@ const SettingGroup = ({ open, onClose, groupId, token }) => {
                   size="small"
                   onClick={() => handleRemoveMember(member.id)}
                 >
+                
                   Xóa
                 </Button>
               }
@@ -85,8 +86,7 @@ const SettingGroup = ({ open, onClose, groupId, token }) => {
                 <Avatar src={member.avatar || '/default-avatar.png'} />
               </ListItemAvatar>
               <ListItemText
-                primary={member.name}
-                secondary={`@${member.username}`}
+                secondary={`${member.firstName} ${member.lastName}`}
               />
             </ListItem>
           ))}

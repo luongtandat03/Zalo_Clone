@@ -15,11 +15,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import vn.edu.iuh.fit.zalo_app_be.common.CallType;
+import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
 import vn.edu.iuh.fit.zalo_app_be.exception.MessageSendException;
+import vn.edu.iuh.fit.zalo_app_be.exception.ResourceNotFoundException;
 import vn.edu.iuh.fit.zalo_app_be.model.Group;
-import vn.edu.iuh.fit.zalo_app_be.repository.GroupRepository;
 import vn.edu.iuh.fit.zalo_app_be.repository.MessageRepository;
 import vn.edu.iuh.fit.zalo_app_be.service.MessageService;
 import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
@@ -27,19 +28,21 @@ import vn.edu.iuh.fit.zalo_app_be.service.WebSocketService;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j(topic = "WEB-SOCKET-SERVICE")
 public class WebSocketServiceImpl implements WebSocketService {
     private final SimpMessagingTemplate template;
-    private final GroupRepository groupRepository;
     private final MessageService messageService;
     private final MessageRepository messageRepository;
 
     @Override
     public void sendMessage(MessageRequest request) {
+        if (request.getType() == MessageType.FORWARD) {
+            template.convertAndSendToUser(request.getReceiverId(), "/queue/forward", request.getContent());
+            log.info("Forwarded message from {} to {}: {}", request.getSenderId(), request.getReceiverId(), request.getContent());
+        }
         try {
             template.convertAndSendToUser(request.getSenderId(), "/queue/messages", request);
             template.convertAndSendToUser(request.getReceiverId(), "/queue/messages", request);
@@ -53,12 +56,11 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public void sendGroupMessage(MessageRequest request) {
+        if (request.getType() == MessageType.FORWARD) {
+            template.convertAndSend("/topic/group" + request.getGroupId(), request.getResponse());
+            log.info("Forwarded message from {} to group {}: {}", request.getSenderId(), request.getGroupId(), request.getContent());
+        }
         try {
-            Optional<Group> group = groupRepository.findById(request.getGroupId());
-            if (group.isEmpty()) {
-                log.error("Group not found: {}", request.getGroupId());
-                throw new MessageSendException("Group not found");
-            }
             template.convertAndSend("/topic/group/" + request.getGroupId(), request);
             log.info("Group message sent from {} to group {}: {}", request.getSenderId(), request.getGroupId(), request.getContent());
         } catch (Exception e) {
@@ -69,6 +71,11 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public void notifyFriendRequest(String senderId, String receiverId) {
+        if (senderId == null || receiverId == null) {
+            log.error("Cannot send friend request notification: senderId or receiverId is null");
+            throw new ResourceNotFoundException("Cannot send friend request notification: senderId or receiverId is null");
+        }
+
         Map<String, Object> notification = new HashMap<>();
         notification.put("senderId", senderId);
         notification.put("receiverId", receiverId);
@@ -93,7 +100,7 @@ public class WebSocketServiceImpl implements WebSocketService {
         notification.put("userId", userId);
         notification.put("receiverId", receiverId);
 
-        template.convertAndSendToUser(receiverId, "/queue/friend/request/rejected", notification);
+        template.convertAndSendToUser(userId, "/queue/friend/request/rejected", notification);
         log.info("Friend request rejected notification sent to {} from {}", receiverId, userId);
     }
 
@@ -166,6 +173,23 @@ public class WebSocketServiceImpl implements WebSocketService {
         MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
         template.convertAndSendToUser(userId, "/queue/read", response);
         log.info("Read notification sent for message {} to user {}", messageId, userId);
+    }
+
+    @Override
+    public void notifyEdit(String messageId, String userId, String content) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSendToUser(userId, "/queue/edit", response);
+        if (!userId.equals(response.getReceiverId())) {
+            template.convertAndSendToUser(response.getReceiverId(), "/queue/edit", response);
+        }
+
+        log.info("Edit notification sent for message {} to user {}", messageId, userId);
+    }
+
+    public void notifyGroupEdit(String messageId, String userId, String groupId) {
+        MessageResponse response = messageService.convertToMessageResponse(messageRepository.findById(messageId).orElseThrow());
+        template.convertAndSend("/topic/group/" + groupId, response);
+        log.info("Group edit notification sent for message {} to user {}", messageId, userId);
     }
 
     @Override
@@ -325,6 +349,28 @@ public class WebSocketServiceImpl implements WebSocketService {
             if (!memberId.equals(userId)) {
                 template.convertAndSendToUser(memberId, "/queue/candidate", notification);
             }
+        }
+    }
+
+    @Override
+    public void sendMessageToUser(String receiverId, Object message) {
+        try {
+            template.convertAndSendToUser(receiverId, "/queue/messages", message);
+            log.info("Message sent to user {}: {}", receiverId, message);
+        } catch (Exception e) {
+            log.error("Error sending message to user {}: {}", receiverId, e.getMessage());
+            throw new MessageSendException("Error sending message to user");
+        }
+    }
+
+    @Override
+    public void sendMessageToGroup(String groupId, Object message) {
+        try {
+            template.convertAndSend("/topic/group/" + groupId, message);
+            log.info("Message sent to group {}: {}", groupId, message);
+        } catch (Exception e) {
+            log.error("Error sending message to group {}: {}", groupId, e.getMessage());
+            throw new MessageSendException("Error sending message to group");
         }
     }
 

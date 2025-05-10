@@ -24,7 +24,8 @@ const UpdateProfileForm = ({ profileData, onSubmit, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formattedDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    
+
+
     const updatedData = {
       userId: profileData?.userId,
       firstName,
@@ -43,9 +44,11 @@ const UpdateProfileForm = ({ profileData, onSubmit, onCancel }) => {
         setSnackbarSeverity("success");
         setSnackbarOpen(true);
         onSubmit(result);
-
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       } else {
-        setSnackbarMessage("Có lỗi khi cập nhật hồ sơ.");
+        setSnackbarMessage("Có lỗi khi cập nhật hồ sơ vui lòng kiểm tra lại.");
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
       }
@@ -150,13 +153,14 @@ const UpdateProfileForm = ({ profileData, onSubmit, onCancel }) => {
           type="file"
           accept="image/*"
           onChange={handleAvatarChange}
+          style={{ display: "none" }}
         />
       </Box>
 
       {/* Nút Submit / Cancel */}
       <Box sx={{ display: "flex", gap: 2 }}>
         <Button variant="contained" color="primary" fullWidth type="submit" >
-          
+
           Lưu thay đổi
         </Button>
         <Button variant="outlined" color="primary" fullWidth onClick={onCancel}>

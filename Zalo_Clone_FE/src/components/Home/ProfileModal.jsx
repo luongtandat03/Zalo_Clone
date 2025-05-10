@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Modal, Paper, Box, Avatar, Typography, Divider, Button, CircularProgress, Snackbar, Alert } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import UpdateProfileForm from "./UpdateProfileForm";
-import { updateUserProfile , fetchUserProfile } from "../../api/user";
+import { updateUserProfile } from "../../api/user";
 
 const ProfileModalStyled = styled(Modal)(({ theme }) => ({
   display: "flex",
@@ -35,10 +35,14 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
   const handleProfileUpdate = async (event, formData) => {
     event.preventDefault();
     setLoading(true);
-  
+
     try {
       const avatarFile = document.getElementById("profile-image-upload")?.files[0];
-  
+
+      if (!avatarFile) {
+        console.warn("No avatar file selected");
+      }
+
       const updatedProfile = {
         firstName: userProfile.firstName,
         lastName: userProfile.lastName,
@@ -48,15 +52,11 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
         birthday: formData.get("birthday"),
         avatar: avatarFile,
       };
-  
+
       const result = await updateUserProfile(updatedProfile);
-  
+
       if (result) {
-        // GỌI LẠI fetchUserProfile
-        const freshProfile = await fetchUserProfile();
-        if (freshProfile) {
-          setUserProfile(freshProfile);
-        }
+        setUserProfile(result);
         setIsEditing(false);
         setSnackbar({ open: true, message: "Cập nhật hồ sơ thành công!", severity: "success" });
         onClose();
@@ -85,10 +85,7 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
         };
         const result = await updateUserProfile(updatedProfile);
         if (result) {
-          const freshProfile = await fetchUserProfile();
-          if (freshProfile) {
-            setUserProfile(freshProfile);
-          }
+          setUserProfile(result);
           setSnackbar({ open: true, message: "Cập nhật ảnh đại diện thành công!", severity: "success" });
         }
       } catch (error) {
@@ -99,7 +96,6 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
       }
     }
   };
-  
 
   const renderProfileContent = () => {
     const data = userProfile || profileData;
@@ -147,7 +143,7 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
         />
 
         <Typography variant="h4" fontWeight="bold" color="textPrimary">
-          {data.username}
+          {`${data.firstName || ""} ${data.lastName || ""}`.trim() || "N/A"}
         </Typography>
         <Typography variant="body2" color="textSecondary">
           Trạng thái: {data.status || "Không xác định"}
@@ -156,9 +152,6 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
         <Divider sx={{ my: 3, width: "100%" }} />
 
         <Box width="100%" textAlign="left" px={2}>
-          <Typography variant="body1" gutterBottom>
-            <strong>ID Người dùng:</strong> {data.id || "N/A"}
-          </Typography>
           <Typography variant="body1" gutterBottom>
             <strong>Email:</strong> {data.email || "N/A"}
           </Typography>
@@ -201,6 +194,7 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
               >
                 {loading ? <CircularProgress size={24} color="inherit" /> : "Chỉnh sửa hồ sơ"}
               </Button>
+              
             )}
           </Box>
         )}

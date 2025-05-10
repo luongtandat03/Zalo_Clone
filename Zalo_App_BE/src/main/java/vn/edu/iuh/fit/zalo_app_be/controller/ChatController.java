@@ -83,7 +83,7 @@ public class ChatController {
             }
 
             messageService.recallMessage(messageId, userId);
-            if(request.getGroupId() != null) {
+            if (request.getGroupId() != null) {
                 webSocketService.notifyGroupRecall(messageId, userId, request.getGroupId());
             } else {
                 webSocketService.notifyRecall(messageId, userId);
@@ -110,7 +110,7 @@ public class ChatController {
             }
 
             messageService.deleteMessage(messageId, userId);
-            if(request.getGroupId() != null) {
+            if (request.getGroupId() != null) {
                 webSocketService.notifyGroupDelete(messageId, userId, request.getGroupId());
             } else {
                 webSocketService.notifyDelete(messageId, userId);
@@ -131,18 +131,18 @@ public class ChatController {
         String receiverId = request.getReceiverId();
         String groupId = request.getGroupId();
 
-        log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}",
-                messageId, userId, receiverId);
+        log.debug("Processing forward message request: messageId={}, userId={}, receiverId={}, groupId={}",
+                messageId, userId, receiverId, groupId);
         try {
-            if (messageId == null || userId == null || receiverId == null) {
+            if (messageId == null || userId == null || (receiverId == null && groupId == null)) {
                 throw new RuntimeException("Invalid forward message request: missing messageId, userId or receiverId");
             }
 
-            messageService.forwardMessage(messageId, userId, receiverId);
-            if(groupId != null) {
-                webSocketService.sendGroupMessage(new MessageRequest(userId, receiverId, request.getContent(), groupId, MessageType.FORWARD));
-            }else {
-                webSocketService.sendMessage(new MessageRequest(userId, receiverId, request.getContent(), null  , MessageType.FORWARD));
+            MessageResponse response = messageService.forwardMessage(messageId, userId, receiverId, groupId);
+            if (groupId != null) {
+                webSocketService.sendGroupMessage(new MessageRequest(userId, null, groupId, MessageType.FORWARD, response));
+            } else {
+                webSocketService.sendMessage(new MessageRequest(userId, receiverId, null, MessageType.FORWARD, response));
             }
             log.info("Message forwarded: messageId={}, userId={}, receiverId={}, groupId={}",
                     messageId, userId, receiverId, groupId);
@@ -177,6 +177,34 @@ public class ChatController {
         }
     }
 
+    @MessageMapping("/chat.edit")
+    public void editMessage(@Payload MessageRequest request) {
+        String messageId = request.getId();
+        String userId = request.getSenderId();
+        String content = request.getContent();
+        String groupId = request.getGroupId();
+
+        log.debug("Processing edit message request: messageId={}, userId={}, content={}, groupId={}",
+                messageId, userId, content, groupId);
+        try {
+            if (messageId == null || userId == null || content == null) {
+                throw new RuntimeException("Invalid edit message request: missing messageId, userId or content");
+            }
+
+            messageService.editMessage(messageId, userId, content);
+            if (request.getGroupId() != null) {
+                webSocketService.notifyGroupEdit(messageId, userId, request.getGroupId());
+            } else {
+                webSocketService.notifyEdit(messageId, userId, content);
+            }
+            log.info("Message edited: messageId={}, userId={}, content={}",
+                    messageId, userId, content);
+        } catch (Exception e) {
+            log.error("Error processing edit message: messageId={}, userId={}, error={}",
+                    messageId, userId, e.getMessage());
+            throw e;
+        }
+    }
     @MessageMapping("/chat.pin")
     public void pinMessage(@Payload MessageRequest request) {
         String messageId = request.getId();

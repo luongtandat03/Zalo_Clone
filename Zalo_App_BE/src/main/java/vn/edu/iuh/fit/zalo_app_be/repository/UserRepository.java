@@ -29,4 +29,6 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     @Query("{ '_id': { $in: ?0 } }")
     List<User> getAllByFriends(List<String> friendIds);
+
+    User findByPhone(String phone);
 }

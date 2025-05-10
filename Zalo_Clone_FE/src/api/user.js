@@ -129,9 +129,9 @@ export const fetchPendingFriendRequests = async () => {
   }
 };
 
-export const sendFriendRequest = async (userId) => {
+export const sendFriendRequest = async (phone) => {
   try {
-    const response = await fetch(`/api/friend/send-request/${userId}`, {
+    const response = await fetch(`/api/friend/send-request/${phone}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
@@ -139,46 +139,57 @@ export const sendFriendRequest = async (userId) => {
     });
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || "Failed to send friend request");
+      throw new Error(error.message || "Gửi yêu cầu kết bạn thất bại");
     }
     return response.json();
   } catch (error) {
-    console.error("Error sending friend request:", error);
-    return null;
+    console.error("Lỗi gửi yêu cầu kết bạn:", error);
+    throw error;
   }
 };
 
-export const acceptFriendRequest = async (userId) => {
+export const acceptFriendRequest = async (requestId) => {
   try {
-    const response = await fetch(`/api/friend/request/${userId}/accept`, {
+    const response = await fetch(`/api/friend/request/${requestId}/accept`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
       },
     });
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Failed to accept friend request");
+      const contentType = response.headers.get("content-type");
+      let errorMessage = "Chấp nhận yêu cầu kết bạn thất bại";
+      if (contentType && contentType.includes("application/json")) {
+        const error = await response.json();
+        errorMessage = error.message || errorMessage;
+      } else {
+        const text = await response.text();
+        console.warn("Non-JSON response received:", text);
+        errorMessage = text || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
     return response.json();
   } catch (error) {
-    console.error("Error accepting friend request:", error);
-    return null;
+    console.error("Lỗi chấp nhận yêu cầu kết bạn:", error);
+    throw error;
   }
 };
 
 export const cancelFriendRequest = async (requestId) => {
   try {
     const response = await fetch(`/api/friend/request/${requestId}/cancel`, {
-      method: "POST",
+      method: "POST", 
       headers: {
         Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
       },
     });
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || "Failed to cancel friend request");
     }
+
     return response.json();
   } catch (error) {
     console.error("Error canceling friend request:", error);
@@ -282,17 +293,76 @@ export const getFriendById = async (friendId) => {
   }
 };
 
-/**
- * Gửi yêu cầu đặt lại mật khẩu
- * @param {string} email - Email người dùng
- * @returns {Promise<boolean>} - Trả về true nếu gửi yêu cầu thành công
- */
 export const resetPassword = async (email) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/users/reset-password`, { email });
     return response.data;
   } catch (error) {
     console.error("Error resetting password:", error);
+    throw error;
+  }
+};
+
+// API để gửi email xác thực
+export const sendVerificationEmail = async (email) => {
+  try {
+    // Đảm bảo email được gửi đúng định dạng
+    const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: email
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Error from server:", errorData);
+      throw new Error("Không thể gửi email xác thực");
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Lỗi khi gửi email xác thực:", error);
+    throw error;
+  }
+};
+
+// API để xác thực email bằng mã code
+export const verifyEmailWithCode = async (email, code, userRegisterRequest) => {
+  try {
+    console.log("Gửi yêu cầu xác thực email:", {
+      email,
+      code,
+      userRegisterRequest
+    });
+
+    const response = await fetch(`${API_BASE_URL}/auth/verify-email-code`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email: email,
+        code: code,
+        userRegisterRequest: userRegisterRequest
+      })
+    });
+    
+    if (!response.ok) {
+      let errorMessage = "Xác thực email thất bại";
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // Nếu phản hồi không phải JSON, sử dụng thông báo mặc định
+      }
+      throw new Error(errorMessage);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error("Lỗi khi xác thực email:", error);
     throw error;
   }
 };

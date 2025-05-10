@@ -46,6 +46,7 @@ import vn.edu.iuh.fit.zalo_app_be.service.UserService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -69,9 +70,23 @@ public class UserServiceImpl implements UserService {
     @Override
     public RegisterResponse register(UserRegisterRequest request) {
         User user = userRepository.findByUsername(request.getUsername());
+
         if (user != null) {
             throw new DulicatedUserException("User already exists");
         }
+
+        User userByUsername = userRepository.findByUsername(request.getUsername());
+        if (userByUsername != null) {
+            log.error("Username already exists");
+            throw new DulicatedUserException("Username already exists");
+        }
+
+        User userByPhone = userRepository.findByPhone(request.getPhone());
+        if (userByPhone != null) {
+            log.error("Phone number already exists");
+            throw new DulicatedUserException("Phone number already exists");
+        }
+
 
         user = User.builder()
                 .username(request.getUsername())
@@ -419,6 +434,23 @@ public class UserServiceImpl implements UserService {
                 .activeStatus(UserActiveStatus.OFFLINE)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken).build();
+    }
+
+    @Override
+    public UserResponse getUserByPhone(String phone) {
+        User user = userRepository.findByPhone(phone);
+        if(user == null){
+            log.error("User not found with phone: {}", phone);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .phone(user.getPhone())
+                .avatar(user.getAvatar())
+                .build();
     }
 
     private void validateCode(VerificationCode code) {

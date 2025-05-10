@@ -1,27 +1,27 @@
 import React, { useState } from 'react';
 import {
-  Avatar, Typography, Button, Dialog, DialogContent, List, 
+  Avatar, Typography, Button, Dialog, DialogContent, List,
   ListItem, ListItemAvatar, ListItemText, Divider, Box, Grid
 } from '@mui/material';
 import { Phone, MessageCircle, Slash, Trash, Settings, LogOut } from "lucide-react";
 import { BiGroup, BiUndo } from "react-icons/bi";
 import { deleteFriend, blockUser, unblockUser } from '../../api/user';
+import { dissolveGroup, fetchUserGroups } from '../../api/groupApi';
 import { toast } from 'react-toastify';
 import SettingGroup from './SettingGroup';
 
-const FriendModal = ({ 
-  open, 
-  onClose, 
-  profileData, 
+const FriendModal = ({
+  open,
+  onClose,
+  profileData,
   userId,
   token,
   onContactSelect,
   contacts,
-  fetchFriendsList 
+  fetchFriendsList
 }) => {
   const [isSettingGroupOpen, setIsSettingGroupOpen] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(profileData?.isBlocked || false);
-  
+
   const handleOpenSettingGroup = () => {
     setIsSettingGroupOpen(true);
   };
@@ -31,7 +31,7 @@ const FriendModal = ({
   };
 
   const handleBlockUser = async () => {
-    if (!profileData || !profileData.id) {
+    if (!profileData.id) {
       toast.error("Không tìm thấy người dùng để chặn");
       return;
     }
@@ -42,7 +42,6 @@ const FriendModal = ({
     try {
       const result = await blockUser(profileData.id);
       if (result) {
-        setIsBlocked(true);
         toast.success("Đã chặn người dùng thành công!");
       } else {
         toast.error("Chặn người dùng thất bại!");
@@ -54,7 +53,7 @@ const FriendModal = ({
   };
 
   const handleUnblockUser = async () => {
-    if (!profileData || !profileData.id) {
+    if (!profileData.id) {
       toast.error("Không tìm thấy người dùng để gỡ chặn");
       return;
     }
@@ -65,7 +64,6 @@ const FriendModal = ({
     try {
       const result = await unblockUser(profileData.id);
       if (result) {
-        setIsBlocked(false);
         toast.success("Đã gỡ chặn người dùng thành công!");
       } else {
         toast.error("Gỡ chặn người dùng thất bại!");
@@ -85,7 +83,7 @@ const FriendModal = ({
       const result = await deleteFriend(friendId);
       if (result) {
         toast.success('Đã xóa bạn bè thành công!');
-        
+
         if (typeof fetchFriendsList === 'function') {
           const updatedFriends = await fetchFriendsList();
           if (updatedFriends && contacts) {
@@ -93,17 +91,14 @@ const FriendModal = ({
               updatedFriends.map(friend => ({
                 id: friend.id,
                 name: friend.name,
-                username: friend.name,
-                avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
+                avatar: friend.avatar,
                 status: friend.status || "offline",
-                lastMessage: friend.lastMessage || "",
-                unreadCount: friend.unreadCount || 0,
-                timestamp: friend.timestamp || "Yesterday",
+                phone: friend.phone,
               }))
             );
             contacts.splice(0, contacts.length, ...updatedContacts);
           }
-          
+
           if (typeof onContactSelect === 'function' && profileData?.id === friendId) {
             onContactSelect(null);
           }
@@ -115,6 +110,26 @@ const FriendModal = ({
       toast.error(`Lỗi xóa bạn bè: ${error.message}`);
     }
   };
+const handleDissolveGroup = async () => {
+  if (!token) {
+    toast.error('Vui lòng đăng nhập để xóa nhóm');
+    return;
+  }
+
+  const confirmDissolve = window.confirm(`Bạn có chắc chắn muốn giải tán nhóm "${profileData.name}" không?`);
+  if (!confirmDissolve) return;
+
+  try {
+    await dissolveGroup(profileData.id, token);
+    toast.success('Nhóm đã được giải tán thành công!');
+    await fetchUserGroups(userId, token);
+     window.location.reload();
+    if (onClose) onClose();
+  } catch (error) {
+    console.error('Lỗi khi giải tán nhóm:', error);
+    toast.error('Xóa nhóm thất bại!  Chỉ có nhóm trưởng mới có thể thực hiện hành động này');
+  }
+};
 
   if (!profileData) return null;
 
@@ -169,9 +184,23 @@ const FriendModal = ({
             </Button>
 
             <Box textAlign="left" mb={3}>
-              <Typography variant="h6" gutterBottom>
-                Thành viên ({profileData.memberIds?.length || profileData.members?.length || 0})
-              </Typography>
+              <Box display="flex" flexDirection="column" gap={2}>
+                <Button
+                  variant="outlined"
+                  startIcon={<Settings size={20} />}
+                  onClick={handleOpenSettingGroup}
+                  sx={{
+                    color: "#f57c00",
+                    borderColor: "#f57c00",
+                    py: 1.2,
+                    borderRadius: 8,
+                    textTransform: "none",
+                    ":hover": { borderColor: "#ef6c00", color: "#ef6c00" },
+                  }}
+                >
+                  Xem thành Viên
+                </Button>
+              </Box>
               <List dense sx={{ bgcolor: "#f5f5f5", borderRadius: 2, p: 1 }}>
                 {profileData.members?.map((member) => (
                   <ListItem key={member.id} sx={{ borderRadius: 1, mb: 0.5 }}>
@@ -180,7 +209,7 @@ const FriendModal = ({
                     </ListItemAvatar>
                     <ListItemText
                       primary={member.name}
-                      secondary={`@${member.username}`}
+                      secondary={`@${member.name}`}
                       primaryTypographyProps={{ fontWeight: "medium" }}
                     />
                   </ListItem>
@@ -219,25 +248,11 @@ const FriendModal = ({
             <Divider sx={{ my: 3, bgcolor: "#e0e0e0" }} />
 
             <Box display="flex" flexDirection="column" gap={2}>
-              <Button
-                variant="outlined"
-                startIcon={<Settings size={20} />}
-                onClick={handleOpenSettingGroup}
-                sx={{
-                  color: "#f57c00",
-                  borderColor: "#f57c00",
-                  py: 1.2,
-                  borderRadius: 8,
-                  textTransform: "none",
-                  ":hover": { borderColor: "#ef6c00", color: "#ef6c00" },
-                }}
-              >
-                QUẢN LÝ NHÓM
-              </Button>
 
               <Button
                 variant="outlined"
                 startIcon={<LogOut size={20} />}
+                onClick={handleDissolveGroup}
                 sx={{
                   color: "#d32f2f",
                   borderColor: "#d32f2f",
@@ -247,7 +262,7 @@ const FriendModal = ({
                   ":hover": { borderColor: "#c62828", color: "#c62828" },
                 }}
               >
-                RỜI NHÓM
+                Xóa nhóm
               </Button>
             </Box>
           </>
@@ -287,10 +302,7 @@ const FriendModal = ({
             <Box textAlign="left" mb={3}>
               <Typography variant="h6" gutterBottom>Thông tin cá nhân</Typography>
               <Box sx={{ bgcolor: "#f5f5f5", borderRadius: 2, p: 2 }}>
-                <Typography variant="body2" mb={1}><strong>Id:</strong> {profileData.id}</Typography>
-                <Typography variant="body2" mb={1}><strong>Username:</strong> {profileData.username || "Chưa cập nhật"}</Typography>
-                <Typography variant="body2" mb={1}><strong>Giới tính:</strong> {profileData.gender || "Chưa cập nhật"}</Typography>
-                <Typography variant="body2" mb={1}><strong>Ngày sinh:</strong> {profileData.birthday || "--/--/----"}</Typography>
+                <Typography variant="body2" mb={1}><strong>Họ và tên:</strong> {profileData.name || "Chưa cập nhật"}</Typography>
                 <Typography variant="body2" mb={1}><strong>Điện thoại:</strong> {profileData.phone || "Chưa cập nhật"}</Typography>
               </Box>
             </Box>
@@ -321,19 +333,42 @@ const FriendModal = ({
             <Box display="flex" flexDirection="column" gap={2}>
               <Button
                 variant="outlined"
-                color={isBlocked ? "success" : "warning"}
-                startIcon={isBlocked ? <BiUndo size={20} /> : <Slash size={20} />}
-                onClick={isBlocked ? handleUnblockUser : handleBlockUser}
+                startIcon={<Slash size={20} />}
+                onClick={handleBlockUser}
                 sx={{
-                  color: isBlocked ? "#4caf50" : "#f57c00",
-                  borderColor: isBlocked ? "#4caf50" : "#f57c00",
+                  flex: 1,
+                  color: "#f57c00",
+                  borderColor: "#f57c00",
                   py: 1.2,
                   borderRadius: 8,
                   textTransform: "none",
-                  ":hover": { borderColor: isBlocked ? "#43a047" : "#ef6c00", color: isBlocked ? "#43a047" : "#ef6c00" },
+                  ":hover": {
+                    borderColor: "#ef6c00",
+                    color: "#ef6c00"
+                  },
                 }}
               >
-                {isBlocked ? "GỠ CHẶN TIN NHẮN VÀ CUỘC GỌI" : "CHẶN TIN NHẮN VÀ CUỘC GỌI"}
+                CHẶN
+              </Button>
+
+              <Button
+                variant="outlined"
+                startIcon={<BiUndo size={20} />}
+                onClick={handleUnblockUser}
+                sx={{
+                  flex: 1,
+                  color: "#4caf50",
+                  borderColor: "#4caf50",
+                  py: 1.2,
+                  borderRadius: 8,
+                  textTransform: "none",
+                  ":hover": {
+                    borderColor: "#43a047",
+                    color: "#43a047"
+                  },
+                }}
+              >
+                GỠ CHẶN
               </Button>
 
               <Button

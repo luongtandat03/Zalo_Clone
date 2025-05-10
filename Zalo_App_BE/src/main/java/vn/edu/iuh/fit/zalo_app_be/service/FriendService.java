@@ -14,7 +14,6 @@ package vn.edu.iuh.fit.zalo_app_be.service;
 
 import vn.edu.iuh.fit.zalo_app_be.controller.response.FriendResponse;
 import vn.edu.iuh.fit.zalo_app_be.model.Friend;
-import vn.edu.iuh.fit.zalo_app_be.model.User;
 
 import java.util.List;
 
@@ -25,7 +24,7 @@ public interface FriendService {
 
     FriendResponse getFriendById(String friendId);
 
-    void sendFriendRequest(String receiverId);
+    void sendFriendRequest(String phone);
 
     void acceptFriendRequest(String requestId);
 

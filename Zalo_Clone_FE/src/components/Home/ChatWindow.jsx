@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar, ListItemText, DialogActions, Button } from '@mui/material';
-import { BiSearch, BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin } from 'react-icons/bi';
+import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, DialogActions, Button, CircularProgress, List, ListItem, ListItemAvatar, ListItemText } from '@mui/material';
+import { BiSearch, BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin, BiEdit } from 'react-icons/bi';
 import Picker from 'emoji-picker-react';
-import { uploadFile, forwardMessage, getPinnedMessages } from '../../api/messageApi';
+import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, pinMessage, unpinMessage, getPinnedMessages, editMessage } from '../../api/messageApi';
 import { fetchGroupMembers } from '../../api/groupApi';
 import SearchMessages from '../../components/SearchMessages';
 import FriendModal from './FriendModal';
@@ -26,10 +26,7 @@ const MessageContainer = styled(Box, {
   alignItems: 'center',
 }));
 
-// Sửa lỗi isSender bằng cách thêm shouldForwardProp
-const MessageBubble = styled(Paper, {
-  shouldForwardProp: (prop) => prop !== 'isSender',
-})(({ isSender, theme }) => ({
+const MessageBubble = styled(Paper)(({ isSender, theme }) => ({
   padding: '8px 16px',
   backgroundColor: isSender ? theme.palette.primary.main : '#ffffff',
   color: isSender ? 'white' : 'black',
@@ -44,29 +41,16 @@ const PinIndicator = styled(Box)(({ theme }) => ({
   color: theme.palette.warning.main,
 }));
 
-const ChatWindow = ({ 
-  selectedContact, 
-  messages, 
-  messageInput, 
-  onMessageInputChange, 
-  onSendMessage, 
-  onSendMessageToServer, 
-  onProfileOpen, 
-  onDeleteMessage, 
-  onRecallMessage,
-  onPinMessage,
-  onUnpinMessage,
-  userId, 
-  contacts, 
-  token,
-  isWebSocketConnected 
-}) => {
+const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputChange, onSendMessage, onProfileOpen, userId, contacts, token }) => {
   const [localMessages, setLocalMessages] = useState(messages);
   const [isSending, setIsSending] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [pinnedMessagesDialogOpen, setPinnedMessagesDialogOpen] = useState(false);
   const [pinnedMessages, setPinnedMessages] = useState([]);
   const [messageToForward, setMessageToForward] = useState(null);
+  const [messageToEdit, setMessageToEdit] = useState(null);
+  const [editContent, setEditContent] = useState('');
   const [groupMembers, setGroupMembers] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
@@ -153,11 +137,6 @@ const ChatWindow = ({
       return;
     }
 
-    if (!isWebSocketConnected) {
-      toast.error('Đang mất kết nối với máy chủ, vui lòng thử lại sau');
-      return;
-    }
-
     setIsSending(true);
 
     const tempKey = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -171,8 +150,7 @@ const ChatWindow = ({
 
     try {
       console.log('Attempting to send message:', message);
-      const success = onSendMessageToServer ? onSendMessageToServer(message) : false;
-      
+      const success = sendMessage('/app/chat.send', message, token);
       if (success) {
         const newMessage = {
           ...message,
@@ -181,6 +159,7 @@ const ChatWindow = ({
           deletedByUsers: [],
           isRead: false,
           isPinned: false,
+          isEdited: false,
         };
         onMessageInputChange({ target: { value: '' } });
         onSendMessage(newMessage);
@@ -213,11 +192,6 @@ const ChatWindow = ({
       toast.error('Không tìm thấy ID liên hệ hoặc nhóm');
       return;
     }
-    
-    if (!isWebSocketConnected) {
-      toast.error('Đang mất kết nối với máy chủ, vui lòng thử lại sau');
-      return;
-    }
 
     console.log('Uploading files:', {
       isGroup: selectedContact.isGroup,
@@ -227,51 +201,13 @@ const ChatWindow = ({
 
     setIsSending(true);
     try {
-      const fileUrls = await uploadFile(
+      const response = await uploadFile(
         files,
         selectedContact.isGroup ? null : selectedContact.id,
         token,
         selectedContact.isGroup ? selectedContact.id : null
       );
-      fileUrls.forEach(url => {
-        const file = files[0];
-        const contentType = file.type || '';
-        let type = 'FILE';
-        if (contentType.startsWith('image/')) {
-          type = 'IMAGE';
-        } else if (contentType.startsWith('video/')) {
-          type = 'VIDEO';
-        } else if (contentType.startsWith('audio/')) {
-          type = 'AUDIO';
-        } else if (contentType === 'application/zip' || contentType === 'application/x-rar-compressed') {
-          type = 'FILE';
-        }
-        const tempKey = `${Date.now()}-${url}`;
-        const message = {
-          senderId: userId,
-          [selectedContact.isGroup ? 'groupId' : 'receiverId']: selectedContact.id,
-          content: url,
-          type: type,
-          tempKey: tempKey,
-        };
-        
-        const success = onSendMessageToServer ? onSendMessageToServer(message) : false;
-        
-        if (success) {
-          const newMessage = {
-            ...message,
-            createAt: new Date().toISOString(),
-            recalled: false,
-            deletedByUsers: [],
-            isRead: false,
-            isPinned: false,
-          };
-          onSendMessage(newMessage);
-        } else {
-          toast.error('Không thể gửi tin nhắn: WebSocket không hoạt động');
-        }
-      });
-      toast.success('File đã được gửi!');
+      toast.success('File đang được gửi...');
     } catch (error) {
       console.error('Error uploading file:', {
         message: error.message,
@@ -299,9 +235,7 @@ const ChatWindow = ({
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      
-      const success = onRecallMessage ? onRecallMessage(identifier) : false;
-      
+      const success = recallMessage(identifier, userId, token);
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
@@ -334,9 +268,7 @@ const ChatWindow = ({
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      
-      const success = onDeleteMessage ? onDeleteMessage(identifier) : false;
-      
+      const success = deleteMessage(identifier, userId, token);
       if (success) {
         const deletedMessageIds = JSON.parse(localStorage.getItem('deletedMessageIds') || '[]');
         if (message.id && !deletedMessageIds.includes(message.id)) {
@@ -375,9 +307,7 @@ const ChatWindow = ({
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      
-      const success = onPinMessage ? onPinMessage(identifier) : false;
-      
+      const success = pinMessage(identifier, userId, token);
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
@@ -410,9 +340,7 @@ const ChatWindow = ({
       if (!identifier) {
         throw new Error('Missing message identifier.');
       }
-      
-      const success = onUnpinMessage ? onUnpinMessage(identifier) : false;
-      
+      const success = unpinMessage(identifier, userId, token);
       if (success) {
         setLocalMessages((prev) =>
           prev.map((msg) =>
@@ -440,8 +368,7 @@ const ChatWindow = ({
     }
 
     try {
-      const success = onUnpinMessage ? onUnpinMessage(message.id) : false;
-      
+      const success = await unpinMessage(message.id, userId, token);
       if (success) {
         setPinnedMessages((prev) => prev.filter((msg) => msg.id !== message.id));
         setLocalMessages((prev) =>
@@ -462,6 +389,58 @@ const ChatWindow = ({
   const handleOpenForwardDialog = (message) => {
     setMessageToForward(message);
     setForwardDialogOpen(true);
+  };
+
+  const handleOpenEditDialog = (message) => {
+    if (message.type !== 'TEXT') {
+      toast.error('Chỉ có thể chỉnh sửa tin nhắn văn bản');
+      return;
+    }
+    setMessageToEdit(message);
+    setEditContent(message.content);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditMessage = async () => {
+    if (!editContent.trim()) {
+      toast.error('Nội dung tin nhắn không được để trống');
+      return;
+    }
+    if (!token) {
+      toast.error('Vui lòng đăng nhập để chỉnh sửa tin nhắn');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const success = await editMessage(
+        messageToEdit.id,
+        userId,
+        editContent,
+        selectedContact.isGroup ? selectedContact.id : null,
+        token
+      );
+      if (success) {
+        setLocalMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageToEdit.id
+              ? { ...msg, content: editContent, isEdited: true }
+              : msg
+          )
+        );
+        toast.success('Tin nhắn đã được chỉnh sửa!');
+      } else {
+        toast.error('Không thể chỉnh sửa tin nhắn: WebSocket không hoạt động');
+      }
+    } catch (error) {
+      console.error('Error editing message:', error);
+      toast.error(`Lỗi chỉnh sửa tin nhắn: ${error.message}`);
+    } finally {
+      setIsSending(false);
+      setEditDialogOpen(false);
+      setMessageToEdit(null);
+      setEditContent('');
+    }
   };
 
   const handleForwardMessage = (contact) => {
@@ -598,6 +577,11 @@ const ChatWindow = ({
       )}
 
       <Box flex={1} overflow="auto" p={2} sx={{ bgcolor: '#f0f0f0', position: 'relative' }}>
+        {isSending && (
+          <Box display="flex" justifyContent="center" my={2}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
         {localMessages.map((message, index) => (
           <MessageContainer
             key={message.id ? `${message.id}-${index}` : (message.tempKey ? `${message.tempKey}-${index}` : `${message.createAt}-${message.senderId}-${index}`)}
@@ -622,6 +606,11 @@ const ChatWindow = ({
                 >
                   <BiPin />
                 </IconButton>
+                {message.type === 'TEXT' && (
+                  <IconButton size="small" onClick={() => handleOpenEditDialog(message)} disabled={isSending}>
+                    <BiEdit />
+                  </IconButton>
+                )}
               </Box>
             )}
             <MessageBubble isSender={message.senderId === userId}>
@@ -642,6 +631,11 @@ const ChatWindow = ({
                     </Typography>
                   )}
                   <Typography>{message.content}</Typography>
+                  {message.isEdited && (
+                    <Typography variant="caption" sx={{ opacity: 0.7, fontStyle: 'italic' }}>
+                      (Đã chỉnh sửa)
+                    </Typography>
+                  )}
                 </>
               ) : message.type === 'IMAGE' ? (
                 <>
@@ -689,15 +683,17 @@ const ChatWindow = ({
                     <Typography>{message.content}</Typography>
                   </Box>
                 </>
-              ) : (
+              ) : message.type === 'FILE' ? (
                 <>
                   {selectedContact.isGroup && message.senderId !== userId && (
                     <Typography variant="caption" display="block" sx={{ opacity: 0.7, mb: 1 }}>
                       {groupMembers.find(m => m.id === message.senderId)?.username || 'Unknown'}
                     </Typography>
                   )}
-                  <a href={message.content} target="_blank" rel="noopener noreferrer">Xem file</a>
+                  <a href={message.content} target="_blank" rel="noopener noreferrer">{message.fileName || 'Xem file'}</a>
                 </>
+              ) : (
+                <Typography>Loại tin nhắn không được hỗ trợ</Typography>
               )}
               <Typography variant="caption" display="block" textAlign="right" sx={{ opacity: 0.7 }}>
                 {new Date(message.createAt).toLocaleTimeString()}
@@ -766,6 +762,28 @@ const ChatWindow = ({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)}>
+        <DialogTitle>Chỉnh sửa tin nhắn</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Nội dung tin nhắn"
+            variant="outlined"
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            multiline
+            rows={3}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)}>Hủy</Button>
+          <Button onClick={handleEditMessage} disabled={isSending || !editContent.trim()}>
+            Lưu
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={pinnedMessagesDialogOpen} onClose={() => setPinnedMessagesDialogOpen(false)}>
         <DialogTitle>Tin nhắn đã ghim</DialogTitle>
         <DialogContent>
@@ -785,7 +803,25 @@ const ChatWindow = ({
                   }
                 >
                   <ListItemText
-                    primary={message.content}
+                    primary={
+                      message.type === 'IMAGE' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <img src={message.content} alt="Ảnh" style={{ maxWidth: '100px', maxHeight: '60px', marginRight: '8px' }} />
+                          <Typography variant="body2">[Hình ảnh]</Typography>
+                        </Box>
+                      ) : message.type === 'VIDEO' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <video src={message.content} style={{ maxWidth: '100px', maxHeight: '60px', marginRight: '8px' }} />
+                          <Typography variant="body2">[Video]</Typography>
+                        </Box>
+                      ) : message.type === 'AUDIO' ? (
+                        <Typography>[Âm thanh]</Typography>
+                      ) : message.type === 'FILE' ? (
+                        <Typography>{message.fileName || '[Tệp đính kèm]'}</Typography>
+                      ) : (
+                        message.content
+                      )
+                    }
                     secondary={`Từ: ${selectedContact.isGroup ? (message.senderId === userId ? 'Bạn' : message.senderId) : message.senderId === userId ? 'Bạn' : selectedContact.name} - ${new Date(message.createAt).toLocaleString()}`}
                     onClick={() => handleSelectMessage(message)}
                     sx={{ cursor: 'pointer' }}
