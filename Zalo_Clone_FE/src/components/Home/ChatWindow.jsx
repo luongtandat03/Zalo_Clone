@@ -539,14 +539,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             <IconButton onClick={handleShowPinnedMessages}>
               <BiPin />
             </IconButton>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                onProfileOpen({ ...selectedContact, members: groupMembers });
-              }}
-            >
-              <BiDotsVerticalRounded />
-            </IconButton>
+            
           </>
         ) : (
           <>

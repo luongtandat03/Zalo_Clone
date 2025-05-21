@@ -712,7 +712,9 @@ const Home = () => {
           <UserSearchModal
             open={userSearchOpen}
             onClose={() => setUserSearchOpen(false)}
+            
           />
+          
           <Dialog open={createGroupOpen} onClose={() => setCreateGroupOpen(false)}>
             <DialogTitle>Tạo nhóm mới</DialogTitle>
             <DialogContent>

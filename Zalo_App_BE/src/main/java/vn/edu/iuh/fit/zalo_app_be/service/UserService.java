@@ -43,6 +43,6 @@ public interface UserService {
 
     RegisterResponse verifyEmail(VerifyEmailRequest request);
 
-    UserResponse getUserByPhone(String phone);
+    UserInfoResponse getUserByPhone(String phone);
 
 }

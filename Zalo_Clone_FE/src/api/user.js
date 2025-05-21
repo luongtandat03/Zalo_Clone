@@ -366,3 +366,23 @@ export const verifyEmailWithCode = async (email, code, userRegisterRequest) => {
     throw error;
   }
 };
+
+export const fetchUserByPhone = async (phone) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/user/get-user-by-phone/${phone}`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+      },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Không thể tìm người dùng với số điện thoại này");
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching user by phone:", error);
+    throw error;
+  }
+};

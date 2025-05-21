@@ -13,7 +13,7 @@ import {
   Alert
 } from '@mui/material';
 import { BiSearch, BiUserPlus } from 'react-icons/bi';
-import { sendFriendRequest } from '../../api/user';
+import { sendFriendRequest, fetchUserByPhone } from '../../api/user';
 
 const UserSearchModal = ({ open, onClose }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -21,7 +21,8 @@ const UserSearchModal = ({ open, onClose }) => {
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [resultMessage, setResultMessage] = useState({ type: '', message: '' });
   const [userFound, setUserFound] = useState(null);
-  const handleSearch = () => {
+  
+  const handleSearch = async () => {
     if (!phoneNumber.trim()) {
       setResultMessage({ type: 'error', message: 'Vui lòng nhập số điện thoại để tìm kiếm' });
       return;
@@ -30,19 +31,31 @@ const UserSearchModal = ({ open, onClose }) => {
     setIsLoading(true);
     setSearchPerformed(true);
     
-    // For now we'll simulate a user search since there's no direct API for searching users
-    // In a real implementation, we might have an API endpoint to search users by phone
-    setTimeout(() => {
-      // Create a simulated user based on the phone number
-      setUserFound({
-        id: 'user-' + Math.random().toString(36).substr(2, 9),
-        name: 'Người dùng ' + phoneNumber,
-        phone: phoneNumber,
-        avatar: "https://i.pravatar.cc/150?img=" + Math.floor(Math.random() * 70)
+    try {
+      const userData = await fetchUserByPhone(phoneNumber);
+      if (userData) {
+        // Ánh xạ dữ liệu từ API vào cấu trúc frontend cần
+        setUserFound({
+          id: userData.id,
+          name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+          phone: userData.phone,
+          avatar: userData.avatar || "https://i.pravatar.cc/150?img=" + Math.floor(Math.random() * 70)
+        });
+        setResultMessage({ type: 'success', message: 'Đã tìm thấy người dùng!' });
+      } else {
+        setResultMessage({ type: 'error', message: 'Không tìm thấy người dùng!' });
+        setUserFound(null);
+      }
+    } catch (error) {
+      console.error("Error searching for user:", error);
+      setResultMessage({ 
+        type: 'error', 
+        message: error.message || 'Không thể tìm thấy người dùng với số điện thoại này' 
       });
-      setResultMessage({ type: 'success', message: 'Đã tìm thấy người dùng!' });
+      setUserFound(null);
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   const handleSendFriendRequest = async () => {

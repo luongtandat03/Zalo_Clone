@@ -19,10 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserPasswordRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.UserUpdateRequest;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.LogoutResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserPasswordResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserResponse;
-import vn.edu.iuh.fit.zalo_app_be.controller.response.UserUpdateResponse;
+import vn.edu.iuh.fit.zalo_app_be.controller.response.*;
 import vn.edu.iuh.fit.zalo_app_be.service.UserService;
 
 @RestController
@@ -73,9 +70,10 @@ public class UserController {
     }
 
     @GetMapping("/get-user-by-phone/{phone}")
-    public UserResponse getUserByPhone(@PathVariable String phone) {
+    public UserInfoResponse getUserByPhone(@PathVariable String phone) {
         log.info("Get user by phone request: {}", phone);
+        String normalizedPhone = phone.startsWith("0") ? phone : "0" + phone;
 
-        return userService.getUserByPhone(phone);
+        return userService.getUserByPhone(normalizedPhone);
     }
 }

@@ -437,17 +437,16 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse getUserByPhone(String phone) {
+    public UserInfoResponse getUserByPhone(String phone) {
         User user = userRepository.findByPhone(phone);
         if(user == null){
             log.error("User not found with phone: {}", phone);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
 
-        return UserResponse.builder()
+        return UserInfoResponse.builder()
                 .id(user.getId())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
+                .name(user.getFirstName() + " " + user.getLastName())
                 .phone(user.getPhone())
                 .avatar(user.getAvatar())
                 .build();
