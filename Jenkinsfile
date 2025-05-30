@@ -2,9 +2,9 @@ pipeline {
     agent any
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        BE_IMAGE = "dockerhub_username/DockerHub"
-        FE_IMAGE = "dockerhub_username/DockerHub"
-        DOCKER_TAG = "${env.BUILD_NUMBER}"
+        BE_IMAGE = "${DOCKER_HUB_CREDENTIALS}/zalo_clone-backend"
+        FE_IMAGE = "${DOCKER_HUB_CREDENTIALS}/zalo_clone-frontend"
+        DOCKER_TAG = "1"
         AWS_REGION = "ap-southeast-1"
         EB_APPLICATION_NAME = "zalo-app-be"
         EB_ENVIRONMENT_NAME = "ZaloAppBe-env"
@@ -101,7 +101,7 @@ pipeline {
                             --region ${AWS_REGION}
                         """
                     }
-                dir('frontend') {
+                dir('Zalo_Clone_FE') {
                     sh 'zip -r zalo-app-fe-deploy.zip Dockerrun.aws.json'
                     // Đẩy lên S3 và triển khai
                     sh """

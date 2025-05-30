@@ -1,7 +1,7 @@
 {
   "AWSEBDockerrunVersion": "1",
   "Image": {
-    "Name": "zalo_clone-backend",
+    "Name": "ltdat5/zalo-app-be:latest",
     "Update": "true"
   },
   "Ports": [
