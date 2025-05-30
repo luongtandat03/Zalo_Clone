@@ -23,38 +23,36 @@ pipeline {
         }
         stage('Build BE') {
             steps {
-                dir('backend') {
+            
                     sh 'mvn clean package -DskipTests'
-                }
+                
             }
         }
         stage('Test BE') {
             steps {
-                dir('backend') {
+                
                     sh 'mvn test'
-                }
+                
             }
         }
         stage('Build FE') {
             steps {
-                dir('frontend') {
+               
                     sh 'npm ci'
                     sh 'npm run build'
-                }
+                
             }
         }
         stage('Build Docker BE') {
             steps {
-                dir('backend') {
                     sh "docker build -t ${BE_IMAGE}:${DOCKER_TAG} ."
-                }
+                
             }
         }
         stage('Build Docker FE') {
             steps {
-                dir('frontend') {
                     sh "docker build -t ${FE_IMAGE}:${DOCKER_TAG} ."
-                }
+                
             }
         }
         stage('Push Docker Images') {
@@ -66,7 +64,6 @@ pipeline {
         }
         stage('Deploy BE to Elastic Beanstalk') {
             steps {
-                dir('backend') {
                     script {
                         // Tạo Dockerrun.aws.json
                         writeFile file: 'Dockerrun.aws.json', text: """
@@ -100,6 +97,21 @@ pipeline {
                             --region ${AWS_REGION}
                         """
                     }
+                dir('frontend') {
+                    sh 'zip -r zalo-app-fe-deploy.zip Dockerrun.aws.json'
+                    // Đẩy lên S3 và triển khai
+                    sh """
+                    aws s3 cp zalo-app-fe-deploy.zip s3://${S3_BUCKET}/zalo-app-fe-deploy-${DOCKER_TAG}.zip
+                    aws elasticbeanstalk create-application-version \
+                        --application-name ${EB_APPLICATION_NAME} \
+                        --version-label ${DOCKER_TAG} \
+                        --source-bundle S3Bucket="${S3_BUCKET}",S3Key="zalo-app-fe-deploy-${DOCKER_TAG}.zip" \
+                        --region ${AWS_REGION}
+                    aws elasticbeanstalk update-environment \
+                        --environment-name ${EB_ENVIRONMENT_NAME} \
+                        --version-label ${DOCKER_TAG} \
+                        --region ${AWS_REGION}
+                    """
                 }
             }
         }
