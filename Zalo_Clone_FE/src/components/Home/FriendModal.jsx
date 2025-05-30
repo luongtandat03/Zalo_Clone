@@ -10,6 +10,7 @@ import { dissolveGroup, fetchUserGroups } from '../../api/groupApi';
 import { toast } from 'react-toastify';
 import SettingGroup from './SettingGroup';
 
+
 const FriendModal = ({
   open,
   onClose,
@@ -21,7 +22,7 @@ const FriendModal = ({
   fetchFriendsList
 }) => {
   const [isSettingGroupOpen, setIsSettingGroupOpen] = useState(false);
-
+  const [isImageOpen, setIsImageOpen] = useState(false);
   const handleOpenSettingGroup = () => {
     setIsSettingGroupOpen(true);
   };
@@ -29,7 +30,13 @@ const FriendModal = ({
   const handleCloseSettingGroup = () => {
     setIsSettingGroupOpen(false);
   };
+  const handleImageOpen = () => {
+    setIsImageOpen(true);
+  };
 
+  const handleImageClose = () => {
+    setIsImageOpen(false);
+  };
   const handleBlockUser = async () => {
     if (!profileData.id) {
       toast.error("Không tìm thấy người dùng để chặn");
@@ -92,7 +99,7 @@ const FriendModal = ({
                 id: friend.id,
                 name: friend.name,
                 avatar: friend.avatar,
-                status: friend.status || "offline",
+                status: friend.status,
                 phone: friend.phone,
               }))
             );
@@ -110,29 +117,29 @@ const FriendModal = ({
       toast.error(`Lỗi xóa bạn bè: ${error.message}`);
     }
   };
-const handleDissolveGroup = async () => {
-  if (!token) {
-    toast.error('Vui lòng đăng nhập để xóa nhóm');
-    return;
-  }
+  const handleDissolveGroup = async () => {
+    if (!token) {
+      toast.error('Vui lòng đăng nhập để xóa nhóm');
+      return;
+    }
 
-  const confirmDissolve = window.confirm(`Bạn có chắc chắn muốn giải tán nhóm "${profileData.name}" không?`);
-  if (!confirmDissolve) return;
+    const confirmDissolve = window.confirm(`Bạn có chắc chắn muốn giải tán nhóm "${profileData.name}" không?`);
+    if (!confirmDissolve) return;
 
-  try {
-    await dissolveGroup(profileData.id, token);
-    toast.success('Nhóm đã được giải tán thành công!');
-    await fetchUserGroups(userId, token);
-     window.location.reload();
-    if (onClose) onClose();
-  } catch (error) {
-    console.error('Lỗi khi giải tán nhóm:', error);
-    toast.error('Xóa nhóm thất bại!  Chỉ có nhóm trưởng mới có thể thực hiện hành động này');
-  }
-};
+    try {
+      await dissolveGroup(profileData.id, token);
+      toast.success('Nhóm đã được giải tán thành công!');
+      await fetchUserGroups(userId, token);
+      window.location.reload();
+      if (onClose) onClose();
+    } catch (error) {
+      console.error('Lỗi khi giải tán nhóm:', error);
+      toast.error('Xóa nhóm thất bại!  Chỉ có nhóm trưởng mới có thể thực hiện hành động này');
+    }
+  };
 
   if (!profileData) return null;
-
+  console.log("profileData: ", profileData);
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogContent
@@ -148,6 +155,7 @@ const handleDissolveGroup = async () => {
       >
         <Avatar
           src={profileData.avatar}
+          onClick={handleImageOpen}
           sx={{
             width: 100,
             height: 100,
@@ -156,6 +164,7 @@ const handleDissolveGroup = async () => {
             border: "3px solid",
             borderColor: "primary.main",
             boxShadow: 2,
+            cursor: "pointer", // Thêm tay chỉ
           }}
         >
           {profileData.isGroup && <BiGroup size={40} />}
@@ -164,10 +173,14 @@ const handleDissolveGroup = async () => {
         <Typography variant="h5" fontWeight="bold" gutterBottom>
           {profileData.name}
         </Typography>
+        <Typography variant="h5" fontWeight="bold" gutterBottom>
+          {profileData.phone}
+        </Typography>
 
         {profileData.isGroup ? (
           <>
             <Button
+              onClick={onClose}
               variant="contained"
               fullWidth
               sx={{
@@ -284,6 +297,7 @@ const handleDissolveGroup = async () => {
                 GỌI ĐIỆN
               </Button>
               <Button
+                onClick={onClose}
                 variant="contained"
                 sx={{
                   backgroundColor: "#1976d2",
@@ -303,7 +317,7 @@ const handleDissolveGroup = async () => {
               <Typography variant="h6" gutterBottom>Thông tin cá nhân</Typography>
               <Box sx={{ bgcolor: "#f5f5f5", borderRadius: 2, p: 2 }}>
                 <Typography variant="body2" mb={1}><strong>Họ và tên:</strong> {profileData.name || "Chưa cập nhật"}</Typography>
-                <Typography variant="body2" mb={1}><strong>Điện thoại:</strong> {profileData.phone || "Chưa cập nhật"}</Typography>
+
               </Box>
             </Box>
 
@@ -415,6 +429,37 @@ const handleDissolveGroup = async () => {
             token={token}
           />
         )}
+        <Dialog
+          open={isImageOpen}
+          onClose={handleImageClose}
+          fullScreen
+          PaperProps={{ sx: { backgroundColor: "rgba(0, 0, 0, 0.9)" } }}
+        >
+          <DialogContent
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100vh",
+              p: 0,
+              cursor: "zoom-out", // Gợi ý người dùng click để thoát
+            }}
+            onClick={handleImageClose}
+          >
+            <img
+              src={profileData.avatar}
+              alt="Avatar"
+              style={{
+                maxWidth: "90%",
+                maxHeight: "90%",
+                objectFit: "contain",
+                borderRadius: "8px",
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+
+
       </DialogContent>
     </Dialog>
   );

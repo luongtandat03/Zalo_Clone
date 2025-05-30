@@ -84,7 +84,7 @@ const NavSidebar = ({
           }}
           onClick={() => onViewChange("messages")}
         >
-          <BiMessageSquareDetail fontSize="40px" />
+          <BiMessageSquareDetail fontSize="32px" />
         </IconButton>
         <IconButton
           sx={{
@@ -96,7 +96,7 @@ const NavSidebar = ({
           }}
           onClick={() => onViewChange("contacts")}
         >
-          <BiUser fontSize="40px" />
+          <BiUser fontSize="32px" />
         </IconButton>
         <Box sx={{ mt: "auto" }}>
           <IconButton
@@ -108,7 +108,7 @@ const NavSidebar = ({
             }}
             onClick={handleMenuOpen}
           >
-            <BiCog fontSize="40px" />
+            <BiCog fontSize="32px" />
           </IconButton>
 
           <Menu
