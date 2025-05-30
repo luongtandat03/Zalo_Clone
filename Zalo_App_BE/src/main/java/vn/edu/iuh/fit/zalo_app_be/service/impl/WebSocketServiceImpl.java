@@ -14,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import vn.edu.iuh.fit.zalo_app_be.common.CallType;
 import vn.edu.iuh.fit.zalo_app_be.common.MessageType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.controller.response.MessageResponse;
@@ -254,101 +253,6 @@ public class WebSocketServiceImpl implements WebSocketService {
         for (String memberId : group.getMemberIds()) {
             template.convertAndSendToUser(memberId, "/queue/group/delete", group);
             log.info("Group deletion notification sent to {}: {}", memberId, group.getName());
-        }
-    }
-
-    @Override
-    public void notifyCallInitiated(String callId, CallType callType, String callerId, String receiverId, Object spdOffer) {
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("callId", callId);
-        notification.put("callType", callType);
-        notification.put("callerId", callerId);
-        notification.put("spdOffer", spdOffer);
-
-        template.convertAndSendToUser(receiverId, "/queue/call", notification);
-
-    }
-
-    @Override
-    public void notifyGroupInitiated(String callId, CallType callType, String callerId, Group group, Object sqdOffer) {
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("callId", callId);
-        notification.put("callType", callType);
-        notification.put("callerId", callerId);
-        notification.put("groupId", group.getId());
-        notification.put("spdOffer", sqdOffer);
-
-        for (String memberId : group.getMemberIds()) {
-            if (!memberId.equals(callerId)) {
-                template.convertAndSendToUser(memberId, "/queue/call", notification);
-            }
-        }
-    }
-
-    @Override
-    public void notifyCallAnswer(String callId, String callerId, Object spdAnswer) {
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("callId", callId);
-        notification.put("spdAnswer", spdAnswer);
-
-        template.convertAndSendToUser(callerId, "/queue/call/answer", notification);
-    }
-
-    @Override
-    public void notifyGroupCallAnswer(String callId, String callerId, Group group, Object spdAnswer) {
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("callId", callId);
-        notification.put("callerId", callerId);
-        notification.put("spdAnswer", spdAnswer);
-
-        for (String memberId : group.getMemberIds()) {
-            if (!memberId.equals(callerId)) {
-                template.convertAndSendToUser(memberId, "/queue/answer", notification);
-            }
-        }
-    }
-
-    @Override
-    public void notifyCallEnd(String callId, String receiverId) {
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("callId", callId);
-
-        template.convertAndSendToUser(receiverId, "/queue/call/end", notification);
-    }
-
-    @Override
-    public void notifyGroupCallEnd(String callId, String userId, Group group) {
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("callId", callId);
-        notification.put("userId", userId);
-
-        for (String memberId : group.getMemberIds()) {
-            if (!memberId.equals(userId)) {
-                template.convertAndSendToUser(memberId, "/queue/end", notification);
-            }
-        }
-    }
-
-    @Override
-    public void notifyIceCandidate(String callId, String receiverId, Object candidate) {
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("callId", callId);
-        notification.put("candidate", candidate);
-
-        template.convertAndSendToUser(receiverId, "/queue/call/candidate", notification);
-    }
-
-    @Override
-    public void notifyGroupIceCandidate(String callId, String userId, Group group, Object candidate) {
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("callId", callId);
-        notification.put("userId", userId);
-        notification.put("candidate", candidate);
-
-        for (String memberId : group.getMemberIds()) {
-            if (!memberId.equals(userId)) {
-                template.convertAndSendToUser(memberId, "/queue/candidate", notification);
-            }
         }
     }
 

@@ -10,7 +10,6 @@ package vn.edu.iuh.fit.zalo_app_be.service;
  * @date: 4/20/2025
  */
 
-import vn.edu.iuh.fit.zalo_app_be.common.CallType;
 import vn.edu.iuh.fit.zalo_app_be.controller.request.MessageRequest;
 import vn.edu.iuh.fit.zalo_app_be.model.Group;
 
@@ -56,22 +55,6 @@ public interface WebSocketService {
     void notifyGroupUpdate(Group group, String actorId, List<String> affectedMemberIds, String action);
 
     void notifyGroupDelete(Group group);
-
-    void notifyCallInitiated(String callId, CallType callType, String callerId, String receiverId, Object spdOffer);
-
-    void notifyGroupInitiated(String callId, CallType callType, String callerId, Group group, Object spdOffer);
-
-    void notifyCallAnswer(String callId, String callerId, Object spdAnswer);
-
-    void notifyGroupCallAnswer(String callId, String receiverId, Group group, Object spdAnswer);
-
-    void notifyCallEnd(String callId, String receiverId);
-
-    void notifyGroupCallEnd(String callId, String userId, Group group);
-
-    void notifyIceCandidate(String callId, String receiverId, Object candidate);
-
-    void notifyGroupIceCandidate(String callId, String userId, Group group, Object candidate);
 
     void sendMessageToUser(String receiverId, Object message);
 
