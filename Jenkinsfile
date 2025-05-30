@@ -2,8 +2,10 @@ pipeline {
     agent any
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        BE_IMAGE = "${DOCKER_HUB_CREDENTIALS}/zalo_clone-backend"
-        FE_IMAGE = "${DOCKER_HUB_CREDENTIALS}/zalo_clone-frontend"
+        DOCKER_HUB_CREDENTIALS_USR = "${DOCKER_HUB_CREDENTIALS.username}"
+        DOCKER_HUB_CREDENTIALS_PSW = "${DOCKER_HUB_CREDENTIALS.password}"
+        BE_IMAGE = "${DOCKER_HUB_CREDENTIALS_USR}/zalo_clone-backend"
+        FE_IMAGE = "${DOCKER_HUB_CREDENTIALS_USR}/zalo_clone-frontend"
         DOCKER_TAG = "1"
         AWS_REGION = "ap-southeast-1"
         EB_APPLICATION_NAME = "zalo-app-be"
