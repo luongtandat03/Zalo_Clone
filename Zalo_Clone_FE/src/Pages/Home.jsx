@@ -645,9 +645,6 @@ const Home = () => {
                   <IconButton onClick={handleMenuOpen} sx={{ mr: 1 }} disabled={isLoading}>
                     <BiGroup title="Create Group" />
                   </IconButton>
-                  <IconButton onClick={handleMenuOpen} disabled={isLoading}>
-                    <BiDotsVerticalRounded />
-                  </IconButton>
                 </Box>
               </Box>
             </Box>
@@ -658,7 +655,6 @@ const Home = () => {
             >
               <MenuItem onClick={() => { setUserSearchOpen(true); handleMenuClose(); }}>Tìm kiếm bạn bè</MenuItem>
               <MenuItem onClick={handleOpenCreateGroup}>Tạo nhóm</MenuItem>
-              <MenuItem onClick={handleLogout}>Đăng xuất</MenuItem>
             </Menu>
             <Snackbar
               open={openSnackbar}

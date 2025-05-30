@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, DialogActions, Button, CircularProgress, List, ListItem, ListItemAvatar, ListItemText } from '@mui/material';
+import { Box, Avatar, Typography, IconButton, TextField, Paper, styled, Dialog, DialogTitle, DialogContent, DialogActions, Button, CircularProgress, List, ListItem, ListItemAvatar, ListItemText, Menu, MenuItem, Tooltip } from '@mui/material';
 import { BiSearch, BiPhone, BiVideo, BiDotsVerticalRounded, BiSmile, BiPaperclip, BiSend, BiUndo, BiTrash, BiShare, BiGroup, BiPin, BiEdit } from 'react-icons/bi';
 import Picker from 'emoji-picker-react';
 import { sendMessage, uploadFile, recallMessage, deleteMessage, forwardMessage, pinMessage, unpinMessage, getPinnedMessages, editMessage } from '../../api/messageApi';
@@ -58,7 +58,20 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [showSearchBar, setShowSearchBar] = useState(false);
-
+  const [anchorEl, setAnchorEl] = useState(null);
+  const messageInputRef = useRef(null);
+  const open = Boolean(anchorEl);
+  useEffect(() => {
+  if (messageInputRef.current) {
+    messageInputRef.current.focus();
+  }
+}, [selectedContact]);
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
   const handleProfileOpen = () => {
     setProfileData(selectedContact);
     setIsFriendModalOpen(true);
@@ -513,8 +526,10 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
       <Box p={2} display="flex" alignItems="center" borderBottom={1} borderColor="divider">
         <Avatar
           src={selectedContact.avatar}
-          sx={{ cursor: 'pointer' }}
+          sx={{ cursor: 'pointer', width: 56,
+          height: 56, }}
           onClick={handleProfileOpen}
+           
         >
           {selectedContact.isGroup && <BiGroup />}
         </Avatar>
@@ -528,7 +543,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
           <Typography variant="caption" color="textSecondary">
             {selectedContact.isGroup
               ? `Nhóm (${groupMembers.length} thành viên)`
-              : selectedContact.status === 'online' ? 'Online' : 'Offline'}
+              : selectedContact.status === 'online' ? 'Online' : 'Online'}
           </Typography>
         </Box>
         {selectedContact.isGroup ? (
@@ -539,7 +554,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             <IconButton onClick={handleShowPinnedMessages}>
               <BiPin />
             </IconButton>
-            
+
           </>
         ) : (
           <>
@@ -582,28 +597,60 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             id={`message-${message.id}`}
           >
             {message.senderId === userId && !message.recalled && !(message.deletedByUsers?.includes(userId)) && (
-              <Box display="flex" flexDirection="column" mr={1}>
-                <IconButton size="small" onClick={() => handleRecallMessage(message)} disabled={isSending}>
-                  <BiUndo />
-                </IconButton>
-                <IconButton size="small" onClick={() => handleDeleteMessage(message)} disabled={isSending}>
-                  <BiTrash />
-                </IconButton>
-                <IconButton size="small" onClick={() => handleOpenForwardDialog(message)} disabled={isSending}>
-                  <BiShare />
-                </IconButton>
+              <Box display="flex" flexDirection="row" alignItems="center">
+                {/* 2 hành động luôn hiển thị */}
                 <IconButton
                   size="small"
-                  onClick={() => (message.isPinned ? handleUnpinMessage(message) : handlePinMessage(message))}
+                  onClick={() =>
+                    message.isPinned ? handleUnpinMessage(message) : handlePinMessage(message)
+                  }
                   disabled={isSending}
                 >
                   <BiPin />
                 </IconButton>
                 {message.type === 'TEXT' && (
-                  <IconButton size="small" onClick={() => handleOpenEditDialog(message)} disabled={isSending}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleOpenEditDialog(message)}
+                    disabled={isSending}
+                  >
                     <BiEdit />
                   </IconButton>
                 )}
+
+                {/* Menu gom 3 hành động khác */}
+                <IconButton size="small" onClick={handleMenuOpen}>
+                  <BiDotsVerticalRounded />
+                </IconButton>
+                <Menu anchorEl={anchorEl} open={open} onClose={handleMenuClose}>
+                  <MenuItem
+                    onClick={() => {
+                      handleRecallMessage(message);
+                      handleMenuClose();
+                    }}
+                    disabled={isSending}
+                  >
+                    <BiUndo style={{ marginRight: 8 }} /> Thu hồi
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      handleDeleteMessage(message);
+                      handleMenuClose();
+                    }}
+                    disabled={isSending}
+                  >
+                    <BiTrash style={{ marginRight: 8 }} /> Xóa
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      handleOpenForwardDialog(message);
+                      handleMenuClose();
+                    }}
+                    disabled={isSending}
+                  >
+                    <BiShare style={{ marginRight: 8 }} /> Chuyển tiếp
+                  </MenuItem>
+                </Menu>
               </Box>
             )}
             <MessageBubble isSender={message.senderId === userId}>
@@ -727,6 +774,7 @@ const ChatWindow = ({ selectedContact, messages, messageInput, onMessageInputCha
             value={messageInput}
             onChange={onMessageInputChange}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            inputRef={messageInputRef}
           />
           <IconButton color="primary" onClick={handleSendMessage} disabled={!messageInput.trim() || isSending}>
             <BiSend />

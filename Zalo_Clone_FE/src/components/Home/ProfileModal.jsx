@@ -3,6 +3,7 @@ import { Modal, Paper, Box, Avatar, Typography, Divider, Button, CircularProgres
 import { styled } from "@mui/material/styles";
 import UpdateProfileForm from "./UpdateProfileForm";
 import { updateUserProfile } from "../../api/user";
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
 
 const ProfileModalStyled = styled(Modal)(({ theme }) => ({
   display: "flex",
@@ -22,6 +23,7 @@ const ProfileContent = styled(Paper)(({ theme }) => ({
   boxShadow: theme.shadows[5],
   outline: "none",
 }));
+
 const getGenderLabel = (gender) => {
   switch (gender) {
     case "MALE":
@@ -29,7 +31,7 @@ const getGenderLabel = (gender) => {
     case "FEMALE":
       return "Nữ";
     default:
-      return "N/A";
+      return "Khác";
   }
 };
 
@@ -37,6 +39,7 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [isAvatarZoomed, setIsAvatarZoomed] = useState(false);
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
@@ -70,6 +73,8 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
         setIsEditing(false);
         setSnackbar({ open: true, message: "Cập nhật hồ sơ thành công!", severity: "success" });
         onClose();
+      } else {
+         setSnackbar({ open: true, message: "Cập nhật hồ sơ thất bại.", severity: "error" });
       }
     } catch (error) {
       console.error("Update profile failed:", error);
@@ -97,6 +102,8 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
         if (result) {
           setUserProfile(result);
           setSnackbar({ open: true, message: "Cập nhật ảnh đại diện thành công!", severity: "success" });
+        } else {
+           setSnackbar({ open: true, message: "Cập nhật ảnh đại diện thất bại.", severity: "error" });
         }
       } catch (error) {
         console.error("Avatar upload failed:", error);
@@ -107,26 +114,35 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
     }
   };
 
+  const handleAvatarClick = () => {
+    setIsAvatarZoomed(true);
+  };
+
+  const handleCloseZoom = () => {
+    setIsAvatarZoomed(false);
+  };
+
   const renderProfileContent = () => {
     const data = userProfile || profileData;
     if (!data) return null;
 
     return (
       <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-        <label htmlFor="profile-image-upload">
+        <Box position="relative" display="inline-block">
           <Box position="relative" display="inline-block">
             <Avatar
               src={data.avatar}
               sx={{
                 width: 140,
                 height: 140,
-                marginBottom: 2,
+                marginBottom: 1,
                 cursor: "pointer",
                 border: "3px solid",
                 borderColor: "primary.main",
                 transition: "transform 0.3s ease, opacity 0.3s ease",
                 "&:hover": { opacity: 0.9, transform: "scale(1.05)" },
               }}
+              onClick={handleAvatarClick}
             />
             {loading && (
               <CircularProgress
@@ -142,7 +158,29 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
               />
             )}
           </Box>
-        </label>
+
+          {userProfile && (
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 8,
+                right: 8,
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                borderRadius: '50%',
+                padding: '4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 1,
+                '&:hover': { backgroundColor: 'rgba(255, 255, 255, 1)' },
+              }}
+              onClick={() => document.getElementById('profile-image-upload')?.click()}
+            >
+              <CameraAltIcon fontSize="small" color="primary" />
+            </Box>
+          )}
+        </Box>
 
         <input
           type="file"
@@ -218,6 +256,36 @@ const ProfileModal = ({ open, onClose, profileData, userProfile, setUserProfile 
       <ProfileModalStyled open={open} onClose={onClose} aria-labelledby="profile-modal">
         <ProfileContent>{renderProfileContent()}</ProfileContent>
       </ProfileModalStyled>
+
+      <Modal open={isAvatarZoomed} onClose={handleCloseZoom} closeAfterTransition>
+        <Box
+          onClick={handleCloseZoom}
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            cursor: 'zoom-out',
+          }}
+        >
+          <Box
+            component="img"
+            src={userProfile?.avatar || profileData?.avatar}
+            alt="Ảnh đại diện phóng to"
+            sx={{
+              maxWidth: '90%',
+              maxHeight: '90%',
+              objectFit: 'contain',
+            }}
+          />
+        </Box>
+      </Modal>
 
       <Snackbar
         open={snackbar.open}

@@ -69,6 +69,7 @@ public class FriendServiceImpl implements FriendService {
                         .id(friend.getId())
                         .name(friend.getFirstName() + " " + friend.getLastName())
                         .avatar(friend.getAvatar())
+                        .phone(friend.getPhone())
                         .activeStatus(friend.getActiveStatus())
                         .build())
                 .toList();

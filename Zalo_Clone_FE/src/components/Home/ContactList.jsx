@@ -73,50 +73,50 @@ const ContactList = ({
             {pendingRequests.map((request) => (
               <ListItem
                 key={request.id}
-                sx={{ py: 1.5 }}
-                secondaryAction={
-                  <>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      size="medium"
-                      onClick={() => onAcceptFriendRequest(request.requestId)}
-                      disabled={isLoading}
-                      sx={{ fontSize: '1rem', py: 1 }}
-                    >
-                      Chấp nhận
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="error"
-                      size="medium"
-                      onClick={() => handleCancelRequest(request.requestId)}
-                      disabled={isLoading}
-                      sx={{ ml: 1, fontSize: '1rem', py: 1 }}
-                    >
-                      Từ chối
-                    </Button>
-                  </>
-                }
+                sx={{ py: 1.5, flexDirection: 'column', alignItems: 'flex-start' }}
               >
-                <ListItemAvatar>
-                  <Avatar
-                    src={request.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde"}
-                    sx={{ width: 56, height: 56 }}
+                <Box sx={{ display: 'flex', width: '100%', alignItems: 'center' }}>
+                  <ListItemAvatar>
+                    <Avatar
+                      src={request.avatar}
+                      sx={{ width: 56, height: 56 }}
+                    />
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
+                        {request.name || request.lastName}
+                      </Typography>
+                    }
+                    secondary={
+                      <Typography variant="body1" sx={{ fontSize: '0.95rem' }}>
+                        Đã gửi lời mời kết bạn
+                      </Typography>
+                    }
                   />
-                </ListItemAvatar>
-                <ListItemText
-                  primary={
-                    <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
-                      {request.lastName}
-                    </Typography>
-                  }
-                  secondary={
-                    <Typography variant="body1" sx={{ fontSize: '0.95rem' }}>
-                      Đã gửi lời mời kết bạn
-                    </Typography>
-                  }
-                />
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, ml: 9, mt: 1 }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    onClick={() => onAcceptFriendRequest(request.requestId)}
+                    disabled={isLoading}
+                    sx={{ fontSize: '0.8rem', py: 0.5, px: 1 }}
+                  >
+                    Chấp nhận
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    size="small"
+                    onClick={() => handleCancelRequest(request.requestId)}
+                    disabled={isLoading}
+                    sx={{ fontSize: '0.8rem', py: 0.5, px: 1 }}
+                  >
+                    Từ chối
+                  </Button>
+                </Box>
               </ListItem>
             ))}
           </List>
