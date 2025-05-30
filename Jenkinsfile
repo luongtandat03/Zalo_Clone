@@ -18,41 +18,43 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/luongtandat0512/Zalo_Clone', branch: 'main', credentialsId: 'github-credentials'
+                git url: 'https://github.com/luongtandat0512/Zalo_Clone', branch: 'TanNha', credentialsId: 'github-credentials'
             }
         }
         stage('Build BE') {
             steps {
-            
+                dir('Zalo_App_BE') {
                     sh 'mvn clean package -DskipTests'
-                
+                }
             }
         }
         stage('Test BE') {
             steps {
-                
+                dir('Zalo_App_BE') {
                     sh 'mvn test'
-                
+                }
             }
         }
         stage('Build FE') {
             steps {
-               
+                dir('Zalo_Clone_FE') {
                     sh 'npm ci'
                     sh 'npm run build'
-                
+                }
             }
         }
         stage('Build Docker BE') {
             steps {
+                dir('Zalo_App_BE') {
                     sh "docker build -t ${BE_IMAGE}:${DOCKER_TAG} ."
-                
+                }
             }
         }
         stage('Build Docker FE') {
             steps {
+                dir('Zalo_Clone_FE') {
                     sh "docker build -t ${FE_IMAGE}:${DOCKER_TAG} ."
-                
+                }
             }
         }
         stage('Push Docker Images') {
@@ -64,6 +66,7 @@ pipeline {
         }
         stage('Deploy BE to Elastic Beanstalk') {
             steps {
+                dir('Zalo_App_BE') {
                     script {
                         // Tạo Dockerrun.aws.json
                         writeFile file: 'Dockerrun.aws.json', text: """
@@ -112,6 +115,7 @@ pipeline {
                         --version-label ${DOCKER_TAG} \
                         --region ${AWS_REGION}
                     """
+                    }
                 }
             }
         }
