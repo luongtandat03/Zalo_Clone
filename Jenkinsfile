@@ -1,26 +1,29 @@
 pipeline {
     agent any
+
     environment {
-        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        BE_IMAGE = "${DOCKER_HUB_CREDENTIALS}/zalo_clone-backend"
-        FE_IMAGE = "${DOCKER_HUB_CREDENTIALS}/zalo_clone-frontend"
         DOCKER_TAG = "1"
         AWS_REGION = "ap-southeast-1"
-        EB_APPLICATION_NAME = "zalo-app-be"
-        EB_ENVIRONMENT_NAME = "ZaloAppBe-env"
+        EB_APPLICATION_NAME_BE = "zalo-app-be"
+        EB_ENVIRONMENT_NAME_BE = "ZaloAppBe-env"
+        EB_APPLICATION_NAME_FE = "zalo-app-fe"
+        EB_ENVIRONMENT_NAME_FE = "ZaloAppFe-env"
         S3_BUCKET = "your-s3-bucket"
     }
+
     tools {
         maven 'Maven'
         jdk 'JDK17'
         nodejs 'NodeJS'
     }
+
     stages {
         stage('Checkout') {
             steps {
                 git url: 'https://github.com/luongtandat0512/Zalo_Clone', branch: 'TanNha', credentialsId: 'github-credentials'
             }
         }
+
         stage('Build BE') {
             steps {
                 dir('Zalo_App_BE') {
@@ -28,6 +31,7 @@ pipeline {
                 }
             }
         }
+
         stage('Test BE') {
             steps {
                 dir('Zalo_App_BE') {
@@ -35,6 +39,7 @@ pipeline {
                 }
             }
         }
+
         stage('Build FE') {
             steps {
                 dir('Zalo_Clone_FE') {
@@ -44,102 +49,122 @@ pipeline {
                 }
             }
         }
-        stage('Build Docker BE') {
+
+        stage('Build & Push Docker Images') {
             steps {
-                dir('Zalo_App_BE') {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                script {
-                    def imageTag = "${DOCKER_USERNAME}/zalo_clone-backend:${DOCKER_TAG}"
-                    sh """
-                        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-                        docker build -t ${imageTag} .
-                        docker push ${imageTag}
-                    """
-                }
-            }s
+                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    script {
+                        def beImageTag = "${DOCKER_USERNAME}/zalo_clone-backend:${DOCKER_TAG}"
+                        def feImageTag = "${DOCKER_USERNAME}/zalo_clone-frontend:${DOCKER_TAG}"
+
+                        // Login
+                        sh """echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin"""
+
+                        // Build BE image
+                        dir('Zalo_App_BE') {
+                            sh "docker build -t ${beImageTag} ."
+                            sh "docker push ${beImageTag}"
+                        }
+
+                        // Build FE image
+                        dir('Zalo_Clone_FE') {
+                            sh "docker build -t ${feImageTag} ."
+                            sh "docker push ${feImageTag}"
+                        }
+
+                        // Save image tags for deploy
+                        env.BE_IMAGE_TAG = beImageTag
+                        env.FE_IMAGE_TAG = feImageTag
+                    }
                 }
             }
         }
-        stage('Build Docker FE') {
-            steps {
-                dir('Zalo_Clone_FE') {
-                    sh "docker build -t ${FE_IMAGE}:${DOCKER_TAG} ."
-                }
-            }
-        }
-        stage('Push Docker Images') {
-            steps {
-                sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
-                sh "docker push ${BE_IMAGE}:${DOCKER_TAG}"
-                sh "docker push ${FE_IMAGE}:${DOCKER_TAG}"
-            }
-        }
+
         stage('Deploy BE to Elastic Beanstalk') {
             steps {
                 dir('Zalo_App_BE') {
                     script {
-                        // Tạo Dockerrun.aws.json
                         writeFile file: 'Dockerrun.aws.json', text: """
                         {
-                            "AWSEBDockerrunVersion": "1",
-                            "Image": {
-                                "Name": "${BE_IMAGE}:${DOCKER_TAG}",
-                                "Update": "true"
-                            },
-                            "Ports": [
-                                {
-                                    "ContainerPort": 8080,
-                                    "HostPort": 8080
-                                }
-                            ]
+                          "AWSEBDockerrunVersion": "1",
+                          "Image": {
+                            "Name": "${env.BE_IMAGE_TAG}",
+                            "Update": "true"
+                          },
+                          "Ports": [
+                            {
+                              "ContainerPort": 8080,
+                              "HostPort": 8080
+                            }
+                          ]
                         }
                         """
-                        // Nén file triển khai
                         sh 'zip -r zalo-app-be-deploy.zip Dockerrun.aws.json'
-                        // Đẩy lên S3 và triển khai
                         sh """
                         aws s3 cp zalo-app-be-deploy.zip s3://${S3_BUCKET}/zalo-app-be-deploy-${DOCKER_TAG}.zip
                         aws elasticbeanstalk create-application-version \
-                            --application-name ${EB_APPLICATION_NAME} \
-                            --version-label ${DOCKER_TAG} \
-                            --source-bundle S3Bucket="${S3_BUCKET}",S3Key="zalo-app-be-deploy-${DOCKER_TAG}.zip" \
-                            --region ${AWS_REGION}
+                          --application-name ${EB_APPLICATION_NAME_BE} \
+                          --version-label ${DOCKER_TAG} \
+                          --source-bundle S3Bucket="${S3_BUCKET}",S3Key="zalo-app-be-deploy-${DOCKER_TAG}.zip" \
+                          --region ${AWS_REGION}
                         aws elasticbeanstalk update-environment \
-                            --environment-name ${EB_ENVIRONMENT_NAME} \
-                            --version-label ${DOCKER_TAG} \
-                            --region ${AWS_REGION}
+                          --environment-name ${EB_ENVIRONMENT_NAME_BE} \
+                          --version-label ${DOCKER_TAG} \
+                          --region ${AWS_REGION}
                         """
                     }
+                }
+            }
+        }
+
+        stage('Deploy FE to Elastic Beanstalk') {
+            steps {
                 dir('Zalo_Clone_FE') {
-                    sh 'zip -r zalo-app-fe-deploy.zip Dockerrun.aws.json'
-                    // Đẩy lên S3 và triển khai
-                    sh """
-                    aws s3 cp zalo-app-fe-deploy.zip s3://${S3_BUCKET}/zalo-app-fe-deploy-${DOCKER_TAG}.zip
-                    aws elasticbeanstalk create-application-version \
-                        --application-name ${EB_APPLICATION_NAME} \
-                        --version-label ${DOCKER_TAG} \
-                        --source-bundle S3Bucket="${S3_BUCKET}",S3Key="zalo-app-fe-deploy-${DOCKER_TAG}.zip" \
-                        --region ${AWS_REGION}
-                    aws elasticbeanstalk update-environment \
-                        --environment-name ${EB_ENVIRONMENT_NAME} \
-                        --version-label ${DOCKER_TAG} \
-                        --region ${AWS_REGION}
-                    """
+                    script {
+                        writeFile file: 'Dockerrun.aws.json', text: """
+                        {
+                          "AWSEBDockerrunVersion": "1",
+                          "Image": {
+                            "Name": "${env.FE_IMAGE_TAG}",
+                            "Update": "true"
+                          },
+                          "Ports": [
+                            {
+                              "ContainerPort": 80,
+                              "HostPort": 80
+                            }
+                          ]
+                        }
+                        """
+                        sh 'zip -r zalo-app-fe-deploy.zip Dockerrun.aws.json'
+                        sh """
+                        aws s3 cp zalo-app-fe-deploy.zip s3://${S3_BUCKET}/zalo-app-fe-deploy-${DOCKER_TAG}.zip
+                        aws elasticbeanstalk create-application-version \
+                          --application-name ${EB_APPLICATION_NAME_FE} \
+                          --version-label ${DOCKER_TAG} \
+                          --source-bundle S3Bucket="${S3_BUCKET}",S3Key="zalo-app-fe-deploy-${DOCKER_TAG}.zip" \
+                          --region ${AWS_REGION}
+                        aws elasticbeanstalk update-environment \
+                          --environment-name ${EB_ENVIRONMENT_NAME_FE} \
+                          --version-label ${DOCKER_TAG} \
+                          --region ${AWS_REGION}
+                        """
                     }
                 }
             }
         }
     }
+
     post {
         always {
-            sh 'docker logout'
+            sh 'docker logout || true'
             cleanWs()
         }
         success {
-            echo "Build #${env.BUILD_NUMBER} succeeded"
+            echo "✅ Build #${env.BUILD_NUMBER} thành công"
         }
         failure {
-            echo "Build #${env.BUILD_NUMBER} failed"
+            echo "❌ Build #${env.BUILD_NUMBER} thất bại"
         }
     }
 }
