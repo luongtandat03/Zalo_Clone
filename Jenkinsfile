@@ -47,7 +47,16 @@ pipeline {
         stage('Build Docker BE') {
             steps {
                 dir('Zalo_App_BE') {
-                    sh "docker build -t ${BE_IMAGE}:${DOCKER_TAG} ."
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                script {
+                    def imageTag = "${DOCKER_USERNAME}/zalo_clone-backend:${DOCKER_TAG}"
+                    sh """
+                        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+                        docker build -t ${imageTag} .
+                        docker push ${imageTag}
+                    """
+                }
+            }s
                 }
             }
         }
