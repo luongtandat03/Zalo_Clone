@@ -52,7 +52,7 @@ pipeline {
 
         stage('Build & Push Docker Images') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     script {
                         def beImageTag = "${DOCKER_USERNAME}/zalo_clone-backend:${DOCKER_TAG}"
                         def feImageTag = "${DOCKER_USERNAME}/zalo_clone-frontend:${DOCKER_TAG}"
