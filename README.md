@@ -107,20 +107,17 @@ npm run dev
 ## 📸 Giao diện demo
 
 ### 🔐 Màn hình đăng nhập
-![Login]("./assets/login_screen.png")
+![Login](./assets/login_screen.png)
 
 ### 🔐 Màn hình đăng kí
-![Register]("./assets/register_screen.png")
+![Register](./assets/register_screen.png)
 
 ### 💬 Giao diện chat
 ![Chat](./assets/chat_screen.png)
 
-### 👥 Danh sách bạn bè
-![Bạn bè](./assets/friends-list.png)
-
 ### Màn hình xác minh email
 
-![Verify]("./assets/verify_email_screen.png")
+![Verify](./assets/verify_email_screen.png)
 
 ### Màn hình thông tin người dùng
 
