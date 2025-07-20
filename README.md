@@ -121,7 +121,7 @@ npm run dev
 
 ### Màn hình thông tin người dùng
 
-![info]("./assets/info_user.png")
+![info](./assets/info_user.png)
 
 
 ---
